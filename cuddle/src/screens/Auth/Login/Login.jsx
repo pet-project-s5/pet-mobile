@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useFonts, Kanit_400Regular } from '@expo-google-fonts/kanit';
 import { Silkscreen_400Regular, Silkscreen_700Bold } from '@expo-google-fonts/silkscreen';
+import { KronaOne_400Regular } from '@expo-google-fonts/krona-one';
+import { Mail, Lock } from 'lucide-react-native';
 import {
   View,
   Text,
@@ -18,6 +20,7 @@ export default function Login({ navigation }) {
     Kanit_400Regular,
     Silkscreen_400Regular,
     Silkscreen_700Bold,
+    KronaOne_400Regular,
   });
 
   const [email, setEmail] = useState('');
@@ -30,25 +33,18 @@ export default function Login({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Camada de fundo — enfeites decorativos */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={styles.cornerTopRight}>
-          <View style={[styles.rect, styles.rect4]} />
-          <View style={[styles.rect, styles.rect5]} />
-          <View style={[styles.rect, styles.rect1]} />
-        </View>
-        <View style={styles.cornerBottomLeft}>
-          <View style={[styles.rect, styles.rect4]} />
-          <View style={[styles.rect, styles.rect5]} />
-          <View style={[styles.rect, styles.rect1]} />
-        </View>
-      </View>
+    <View style={styles.container}>
 
-      {/* Camada de conteúdo */}
+      {/* Background */}
+      <Image
+        source={require('../../../assets/icons/frameBackground.png')}
+        style={styles.background}
+        pointerEvents="none"
+      />
+      <KeyboardAvoidingView
+        style={styles.kav}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView
         contentContainerStyle={styles.inner}
         keyboardDismissMode="on-drag"
@@ -56,28 +52,36 @@ export default function Login({ navigation }) {
       >
         <View style={styles.logoRow}>
           <Image source={require('../../../assets/icons/Logo.png')} style={styles.logoImage} />
-          <Text style={styles.logoText}>Cuddle</Text>
+          <View style={styles.logoTextCol}>
+            <Text style={styles.logoText}>Cuddle</Text>
+            <Text style={styles.slogan}>cuidar é amar</Text>
+          </View>
         </View>
-        <Text style={styles.subtitle}>Bem-vindo de volta!</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          placeholderTextColor="#8671FF"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
+        <View style={styles.inputWrapper}>
+          <Mail color="#77C9DB" size={18} style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#77C9DB"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor="#8671FF"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+        <View style={styles.inputWrapper}>
+          <Lock color="#77C9DB" size={18} style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Senha"
+            placeholderTextColor="#77C9DB"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+        </View>
 
         <TouchableOpacity onPress={() => {}}>
           <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
@@ -94,57 +98,26 @@ export default function Login({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EEEEEE',
+    backgroundColor: '#E8F7FB',
   },
-  cornerTopRight: {
+  background: {
     position: 'absolute',
     top: 0,
-    right: 0,
-    width: 220,
-    height: 220,
-  },
-  cornerBottomLeft: {
-    position: 'absolute',
-    bottom: 0,
     left: 0,
-    width: 220,
-    height: 220,
-    transform: [{ rotate: '180deg' }],
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
-  rect: {
-    position: 'absolute',
-    width: 174,
-    height: 174,
-    borderRadius: 20,
-  },
-  rect4: {
-    top: -98,
-    right: -60,
-    backgroundColor: '#8671FF',
-    transform: [{ rotate: '-110.66deg' }],
-  },
-  rect5: {
-    top: -105,
-    right: -65,
-    backgroundColor: 'transparent',
-    borderWidth: 5,
-    borderColor: '#624CE2',
-    transform: [{ rotate: '-505deg' }],
-  },
-  rect1: {
-    top: -96,
-    right: -44,
-    backgroundColor: 'transparent',
-    borderWidth: 5,
-    borderColor: '#3925A9',
-    transform: [{ rotate: '-100deg' }],
+  kav: {
+    flex: 1,
   },
   inner: {
     flexGrow: 1,
@@ -156,69 +129,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 50,
   },
   logoImage: {
     width: 48,
     height: 48,
     resizeMode: 'contain',
   },
+  logoTextCol: {
+    flexDirection: 'column',
+  },
   logoText: {
     fontSize: 32,
     fontWeight: '700',
-    fontFamily: 'Kanit_400Regular',
-    color: '#624CE2',
+    fontFamily: 'KronaOne_400Regular',
+    color: '#2794AD',
+    lineHeight: 36,
   },
-  subtitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#8671FF',
-    textAlign: 'center',
-    marginBottom: 40,
-    fontFamily: 'Kanit_400Regular',
+  slogan: {
+    fontSize: 13,
+    fontFamily: 'KronaOne_400Regular',
+    color: '#8DD6E6',
+    letterSpacing: 0.5,
   },
-  input: {
-    height: 52,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 12,
+    backgroundColor: '#f9f9f9',
     paddingHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    height: 52,
     fontSize: 15,
     color: '#8671FF',
-    backgroundColor: '#f9f9f9',
-    marginBottom: 16,
     fontFamily: 'Kanit_400Regular',
   },
   forgotPassword: {
     textAlign: 'right',
-    color: '#8671FF',
+    color: '#E4B551',
     fontSize: 13,
     marginBottom: 24,
+    fontFamily: 'Kanit_400Regular',
   },
   button: {
     height: 52,
-    backgroundColor: '#75CF71',
+    backgroundColor: '#E4B651',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+  
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Kanit_400Regular',
   },
   registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
   },
   registerText: {
-    color: '#666',
+    color: '#2794AD',
     fontSize: 14,
     fontFamily: 'Kanit_400Regular',
   },
   registerLink: {
-    color: '#75CF71',
+    color: '#E4B651',
     fontSize: 14,
     fontWeight: '700',
   },
