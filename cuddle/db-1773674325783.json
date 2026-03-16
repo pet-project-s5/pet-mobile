@@ -1,0 +1,86 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "nome": "Matheus",
+      "sobrenome": "Silva",
+      "nascimento": "10/10/1998",
+      "cpf": "12345678900",
+      "cep": "01001000",
+      "rua": "Avenida Paulista",
+      "numero": "1000",
+      "bairro": "Bela Vista",
+      "cidade": "Sao Paulo",
+      "estado": "SP",
+      "email": "matheus@cuddle.com",
+      "password": "123456"
+    }
+  ],
+  "pets": [
+    {
+      "id": 1,
+      "userId": 1,
+      "nome": "Mike",
+      "tipo": "Cachorro",
+      "sexo": "Male",
+      "idade": "3 years",
+      "peso": "10kg",
+      "foto": "https://images.unsplash.com/photo-1611003229186-9e06d7830e82?auto=format&fit=crop&w=900&q=80"
+    },
+    {
+      "id": 2,
+      "userId": 1,
+      "nome": "Doug",
+      "tipo": "Cachorro",
+      "sexo": "Male",
+      "idade": "2 years",
+      "peso": "9kg",
+      "foto": "https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=900&q=80"
+    },
+    {
+      "id": 3,
+      "userId": 1,
+      "nome": "Justin",
+      "tipo": "Gato",
+      "sexo": "Male",
+      "idade": "1 year",
+      "peso": "4kg",
+      "foto": "https://images.unsplash.com/photo-1511044568932-338cba0ad803?auto=format&fit=crop&w=900&q=80"
+    }
+  ],
+  "services": [
+    {
+      "id": 1,
+      "nome": "Banho",
+      "imagem": "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=900&q=80"
+    },
+    {
+      "id": 2,
+      "nome": "Tosa",
+      "imagem": "https://images.unsplash.com/photo-1583511655826-05700442b31b?auto=format&fit=crop&w=900&q=80"
+    },
+    {
+      "id": 3,
+      "nome": "Corte de Unha",
+      "imagem": "https://images.unsplash.com/photo-1601758123927-196f49ca8a24?auto=format&fit=crop&w=900&q=80"
+    }
+  ],
+  "appointments": [
+    {
+      "id": 1,
+      "userId": 1,
+      "petId": 1,
+      "serviceId": 1,
+      "titulo": "Banho - Mike",
+      "data": "12/03/26"
+    },
+    {
+      "id": 2,
+      "userId": 1,
+      "petId": 2,
+      "serviceId": 1,
+      "titulo": "Banho - Doug",
+      "data": "14/03/26"
+    }
+  ]
+}

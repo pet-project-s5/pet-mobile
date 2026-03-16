@@ -29,7 +29,9 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
+import { register as registerRequest } from '../../../services/api';
 
 export default function Register({ navigation }) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -55,6 +57,7 @@ export default function Register({ navigation }) {
   const [confirmSenha, setConfirmSenha] = useState('');
   const [showSenha, setShowSenha] = useState(false);
   const [showConfirmSenha, setShowConfirmSenha] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Kanit_400Regular,
@@ -65,8 +68,65 @@ export default function Register({ navigation }) {
 
   if (!fontsLoaded) return null;
 
+  const handleSubmitRegister = async () => {
+    if (!nome || !email || !senha || !confirmSenha) {
+      Alert.alert('Atenção', 'Preencha os campos obrigatórios para continuar.');
+      return;
+    }
+
+    if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+      Alert.alert('Atenção', 'Os emails não são iguais.');
+      return;
+    }
+
+    if (senha !== confirmSenha) {
+      Alert.alert('Atenção', 'As senhas não são iguais.');
+      return;
+    }
+
+    const payload = {
+      nome,
+      sobrenome,
+      nascimento,
+      cpf,
+      cep,
+      rua,
+      numero,
+      bairro,
+      cidade,
+      estado,
+      email: email.trim().toLowerCase(),
+      password: senha,
+    };
+
+    try {
+      setLoading(true);
+      const user = await registerRequest(payload);
+
+      Alert.alert('Cadastro concluído', 'Conta criada com sucesso.', [
+        {
+          text: 'OK',
+          onPress: () =>
+            navigation?.replace('Home', {
+              userId: user.id,
+              userName: user.nome,
+            }),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível concluir o cadastro.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleContinuar = () => {
-    if (currentStep < 2) setCurrentStep(currentStep + 1);
+    if (currentStep < 2) {
+      setCurrentStep(currentStep + 1);
+      return;
+    }
+
+    handleSubmitRegister();
   };
 
   const handleVoltarStep = () => {
@@ -84,12 +144,12 @@ export default function Register({ navigation }) {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
           <View style={styles.headerRow}>
             <TouchableOpacity
               style={styles.backButton}
@@ -207,7 +267,7 @@ export default function Register({ navigation }) {
               onPress={handleContinuar}
             >
               <Text style={styles.buttonPrimaryText}>
-                {currentStep < 2 ? 'Continuar' : 'Cadastrar'}
+                {loading ? 'Salvando...' : currentStep < 2 ? 'Continuar' : 'Cadastrar'}
               </Text>
             </TouchableOpacity>
 
@@ -229,10 +289,9 @@ export default function Register({ navigation }) {
               </TouchableOpacity>
             )}
           </View>
-
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -275,9 +334,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 16,
     marginBottom: 16,
-  },
-  headerSpacer: {
-    width: 0,
   },
   stepCard: {
     flexDirection: 'column',

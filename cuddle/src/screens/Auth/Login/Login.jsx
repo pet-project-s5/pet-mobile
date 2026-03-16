@@ -13,7 +13,9 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
+import { login as loginRequest } from '../../../services/api';
 
 export default function Login({ navigation }) {
   const [fontsLoaded] = useFonts({
@@ -25,11 +27,37 @@ export default function Login({ navigation }) {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!fontsLoaded) return null;
 
-  const handleLogin = () => {
-    console.log('Login:', email, password);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Atenção', 'Preencha email e senha.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const user = await loginRequest(email.trim(), password);
+
+      if (!user) {
+        Alert.alert('Login inválido', 'Email ou senha incorretos.');
+        return;
+      }
+
+      navigation?.replace('Home', {
+        userId: user.id,
+        userName: user.nome,
+      });
+    } catch (error) {
+      Alert.alert(
+        'Erro de conexão',
+        'Não foi possível fazer login. Verifique se o json-server está rodando e se celular e PC estão na mesma rede.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -88,7 +116,7 @@ export default function Login({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Entrar</Text>
+          <Text style={styles.buttonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
         </TouchableOpacity>
 
         <View style={styles.registerRow}>
