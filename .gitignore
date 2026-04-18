@@ -33,8 +33,11 @@ yarn-error.*
 
 # local env files — nunca commitar chaves/senhas
 .env
-.env.*
-.env*.local
+.env.local
+.env.*.local
+# exceções: arquivos de exemplo SÃO commitados
+!.env.example
+!.env.*.example
 
 # typescript
 *.tsbuildinfo

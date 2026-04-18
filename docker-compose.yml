@@ -1,6 +1,6 @@
 version: '3.9'
 
-# ─────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  Cuddle Pet-Shop — Stack completo
 #
 #  Serviços:
@@ -8,22 +8,27 @@ version: '3.9'
 #    api  → TypeScript + Express + Prisma (pet-api-ts), porta 8080
 #    web  → Expo web (react-native-web), porta 8081
 #
+#  Variáveis de ambiente:
+#    Copie .env.example → .env na raiz e preencha os valores.
+#    Todas as chaves vêm deste único .env — não edite os .env dos subprojetos
+#    para uso com Docker.
+#
 #  Como usar:
-#    docker compose up --build        # sobe tudo
-#    docker compose up db api         # só back-end
-#    docker compose up web            # só front web
-# ─────────────────────────────────────────────────────────────────
+#    docker compose up --build          # sobe tudo
+#    docker compose up --build web      # só rebuilda o front
+#    docker compose up db api           # só back-end
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
 
-  # ── Banco de dados ─────────────────────────────────────────────
+  # ── Banco de dados ──────────────────────────────────────────────────────────
   db:
     image: postgres:15-alpine
     container_name: cuddle-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-petapi}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB:       ${POSTGRES_DB:-petapi}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
     ports:
       - "5432:5432"
@@ -35,7 +40,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── API TypeScript + Express + Prisma ──────────────────────────
+  # ── API TypeScript + Express + Prisma ───────────────────────────────────────
   api:
     build:
       context: ./pet-api-ts
@@ -49,7 +54,7 @@ services:
       - "8080:8080"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-root}@db:5432/${POSTGRES_DB:-petapi}
-      JWT_SECRET: ${JWT_SECRET:-sua_chave_jwt_secreta_aqui}
+      JWT_SECRET:   ${JWT_SECRET:-troque_por_uma_chave_longa_e_aleatoria}
       PORT: 8080
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
@@ -58,20 +63,20 @@ services:
       retries: 5
       start_period: 30s
 
-  # ── Front-end Expo Web ──────────────────────────────────────────
+  # ── Front-end Expo Web ──────────────────────────────────────────────────────
   web:
     build:
       context: ./cuddle
       dockerfile: Dockerfile.web
+      args:
+        # Injetada no bundle Expo em tempo de build — vem do .env raiz
+        EXPO_PUBLIC_GROQ_API_KEY: ${GROQ_API_KEY:-}
     container_name: cuddle-web
     restart: unless-stopped
+    depends_on:
+      - api
     ports:
       - "8081:8081"
-    environment:
-      EXPO_PUBLIC_API_URL: http://localhost:8080
-    volumes:
-      - ./cuddle:/app
-      - /app/node_modules
 
 volumes:
   pgdata:

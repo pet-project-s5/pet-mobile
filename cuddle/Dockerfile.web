@@ -7,6 +7,10 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 
+# Chave Groq injetada como build arg (nunca via .env commitado)
+ARG EXPO_PUBLIC_GROQ_API_KEY
+ENV EXPO_PUBLIC_GROQ_API_KEY=$EXPO_PUBLIC_GROQ_API_KEY
+
 # Gera a pasta dist/ com o build web do Expo
 RUN npx expo export --platform web
 
