@@ -1,0 +1,95 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Owner {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+  cpf          String   @unique
+  phoneNumber  String   @unique @map("phone_number")
+  cep          String
+  street       String
+  number       String
+  neighborhood String
+  complement   String?
+  isAdm        Boolean  @default(false) @map("is_adm")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastUpdate   DateTime @updatedAt @map("last_update")
+  pets         Pet[]
+
+  @@map("owner")
+}
+
+model Pet {
+  id           Int           @id @default(autoincrement())
+  name         String
+  species      String
+  breed        String
+  sex          String
+  age          Int
+  size         String
+  coat         String
+  owner        Owner         @relation(fields: [ownerId], references: [id])
+  ownerId      Int           @map("owner_id")
+  appointments Appointment[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  lastUpdate   DateTime      @updatedAt @map("last_update")
+
+  @@map("pet")
+}
+
+model PetOffering {
+  id          Int                           @id
+  name        String
+  description String
+  employees   Employee[]                    @relation("EmployeePetOffering")
+  prices      PetOfferingPriceAndDuration[]
+
+  @@map("pet_offering")
+}
+
+model PetOfferingPriceAndDuration {
+  id            Int         @id @default(autoincrement())
+  petOffering   PetOffering @relation(fields: [petOfferingId], references: [id])
+  petOfferingId Int         @map("pet_offering_id")
+  petSize       String      @map("pet_size")
+  petCoat       String      @map("pet_coat")
+  price         Float
+  duration      Int
+
+  @@map("pet_offering_price_and_duration")
+}
+
+model Employee {
+  id           Int           @id
+  name         String
+  petOfferings PetOffering[] @relation("EmployeePetOffering")
+  appointments Appointment[]
+
+  @@map("employee")
+}
+
+model Appointment {
+  id               Int      @id @default(autoincrement())
+  pet              Pet      @relation(fields: [petId], references: [id])
+  petId            Int      @map("pet_id")
+  employee         Employee @relation(fields: [employeeId], references: [id])
+  employeeId       Int      @map("employee_id")
+  petOfferingNames String   @map("pet_offerings")
+  totalPrice       Float    @map("total_price")
+  observations     String?
+  startDateTime    DateTime @map("start_date_time")
+  endDateTime      DateTime @map("end_date_time")
+  isFinished       Boolean  @default(false) @map("is_finished")
+  createdAt        DateTime @default(now()) @map("created_at")
+  lastUpdate       DateTime @updatedAt @map("last_update")
+
+  @@map("appointment")
+}

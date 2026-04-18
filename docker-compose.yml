@@ -1,0 +1,77 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────
+#  Cuddle Pet-Shop — Stack completo
+#
+#  Serviços:
+#    db   → PostgreSQL 15
+#    api  → TypeScript + Express + Prisma (pet-api-ts), porta 8080
+#    web  → Expo web (react-native-web), porta 8081
+#
+#  Como usar:
+#    docker compose up --build        # sobe tudo
+#    docker compose up db api         # só back-end
+#    docker compose up web            # só front web
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Banco de dados ─────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: cuddle-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-petapi}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API TypeScript + Express + Prisma ──────────────────────────
+  api:
+    build:
+      context: ./pet-api-ts
+      dockerfile: Dockerfile
+    container_name: cuddle-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-root}@db:5432/${POSTGRES_DB:-petapi}
+      JWT_SECRET: ${JWT_SECRET:-sua_chave_jwt_secreta_aqui}
+      PORT: 8080
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── Front-end Expo Web ──────────────────────────────────────────
+  web:
+    build:
+      context: ./cuddle
+      dockerfile: Dockerfile.web
+    container_name: cuddle-web
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      EXPO_PUBLIC_API_URL: http://localhost:8080
+    volumes:
+      - ./cuddle:/app
+      - /app/node_modules
+
+volumes:
+  pgdata:

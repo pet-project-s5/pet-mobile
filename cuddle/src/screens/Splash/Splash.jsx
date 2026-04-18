@@ -3,6 +3,7 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { useFonts, Kanit_400Regular } from '@expo-google-fonts/kanit';
 import { Silkscreen_700Bold } from '@expo-google-fonts/silkscreen';
 import { KronaOne_400Regular } from '@expo-google-fonts/krona-one';
+import { restoreAuth } from '../../services/auth';
 
 export default function Splash({ navigation }) {
   const [fontsLoaded] = useFonts({
@@ -13,9 +14,17 @@ export default function Splash({ navigation }) {
   useEffect(() => {
     if (!fontsLoaded) return;
 
-    const timer = setTimeout(() => {
-      navigation?.replace('Login');
-    }, 2000);
+    const timer = setTimeout(async () => {
+      const session = await restoreAuth();
+      if (session) {
+        navigation?.replace('Home', {
+          userId: session.userId,
+          userName: session.userName,
+        });
+      } else {
+        navigation?.replace('Login');
+      }
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [fontsLoaded]);
