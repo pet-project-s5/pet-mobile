@@ -38,13 +38,11 @@ const SPECIES_OPTIONS = [
   { label: 'Coelho',   value: 'Coelho'   },
   { label: 'Roedor',   value: 'Roedor'   },
   { label: 'Ave',      value: 'Ave'      },
-  { label: 'Peixe',    value: 'Peixe'    },
-  { label: 'Réptil',   value: 'Réptil'   },
   { label: 'Outro',    value: 'Outro'    },
 ];
 
 // Species that have no fur — coat field hidden, value stored as 'curta'
-const NO_FUR_SPECIES = ['Ave', 'Peixe', 'Réptil'];
+const NO_FUR_SPECIES = ['Ave', 'Roedor'];
 
 const BREEDS_BY_SPECIES = {
   Cachorro: ['Labrador', 'Golden Retriever', 'Bulldog', 'Pastor Alemão', 'Poodle', 'Shih Tzu', 'Yorkshire', 'Beagle', 'Lhasa Apso', 'Dachshund', 'Rottweiler', 'Pinscher Miniatura', 'Border Collie', 'Husky Siberiano', 'SRD', 'Outro'],

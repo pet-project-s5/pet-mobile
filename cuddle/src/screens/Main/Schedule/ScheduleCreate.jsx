@@ -9,19 +9,19 @@ import {
   getPetsByUser, getServices, getAvailableTimes, createAppointment,
 } from '../../../services/api';
 import LoadingView from '../../Elements/LoadingView';
-import { useSettings } from '../../../contexts/SettingsContext';
+import { useSettings, useT } from '../../../contexts/SettingsContext';
 
 // ─── Service IDs allowed per species ─────────────────────────────────────────
 // 1=Banho 2=Tosa higiênica 3=Tosa máquina 4=Tosa bebê 5=Botinha
 // 6=Desembolo 7=Escovação dentária 8=Hidratação 9=Corte de unha
 const SERVICES_BY_SPECIES = {
   cachorro: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-  gato:     [1, 2, 7, 8, 9],
-  coelho:   [1, 2, 9],
-  roedor:   [9],
-  ave:      [9],
-  peixe:    [],
-  réptil:   [],
+  gato:     [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  coelho:   [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  roedor:   [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  ave:      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  peixe:    [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  reptil:   [1, 2, 3, 4, 5, 6, 7, 8, 9],
   outro:    [1, 2, 3, 4, 5, 6, 7, 8, 9],
 };
 
@@ -187,6 +187,7 @@ function Row({ icon, label, value, highlight }) {
 export default function ScheduleCreate({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { theme } = useSettings();
+  const t = useT();
   const userId = route?.params?.userId;
   const userName = route?.params?.userName;
   const initialPetId = route?.params?.petId;
@@ -210,6 +211,7 @@ export default function ScheduleCreate({ navigation, route }) {
   // available times: array of { employee, times[], durationTime, petOfferingNames, servicePrice }
   const [availableOptions, setAvailableOptions] = useState([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
+  const [tooLong, setTooLong] = useState(false);
 
   // Selected: time string + employee object
   const [selectedTime, setSelectedTime] = useState(null);
@@ -231,9 +233,8 @@ export default function ScheduleCreate({ navigation, route }) {
         ]);
         setPets(petData);
         setServices(serviceData);
-        // Skip service step if came from Services screen
-        if (initialPetId && preselectedServiceId) setStep(2);
-        else if (initialPetId) setStep(preselectedServiceId ? 2 : 1);
+        // If pet is pre-selected, skip pet step but always show service step
+        if (initialPetId) setStep(1);
       } catch {
         // silent – user will see empty lists
       } finally {
@@ -247,11 +248,17 @@ export default function ScheduleCreate({ navigation, route }) {
     if (!selectedPetId || selectedServiceIds.length === 0 || !date) return;
     setLoadingTimes(true);
     setAvailableOptions([]);
+    setTooLong(false);
     setSelectedTime(null);
     setSelectedEmployee(null);
     try {
       const result = await getAvailableTimes(selectedPetId, date, selectedServiceIds);
-      setAvailableOptions(result || []);
+      if (result.tooLong) {
+        setTooLong(true);
+        setAvailableOptions([]);
+      } else {
+        setAvailableOptions(result.results || []);
+      }
     } catch {
       setAvailableOptions([]);
     } finally {
@@ -278,7 +285,8 @@ export default function ScheduleCreate({ navigation, route }) {
   const employeesForTime = selectedTime ? (timeMap[selectedTime] || []) : [];
 
   const toggleService = (id) => {
-    if (id === preselectedServiceId) return; // locked
+    if (id === preselectedServiceId) return;
+    setTooLong(false);
     setSelectedServiceIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
@@ -287,8 +295,7 @@ export default function ScheduleCreate({ navigation, route }) {
   const handleNext = async () => {
     if (step === 0) {
       if (!selectedPetId) return;
-      // Skip service step if came from Services screen with a locked service
-      setStep(preselectedServiceId ? 2 : 1);
+      setStep(1);
     } else if (step === 1) {
       if (selectedServiceIds.length === 0) return;
       setStep(2);
@@ -364,7 +371,7 @@ export default function ScheduleCreate({ navigation, route }) {
             <View style={styles.modalIconWrap}>
               <CheckCircle size={52} color="#2EC27E" />
             </View>
-            <Text style={styles.modalTitle}>Agendamento confirmado!</Text>
+            <Text style={styles.modalTitle}>{t.appointmentConfirmed}</Text>
             {successInfo && (
               <View style={styles.modalInfo}>
                 <Text style={styles.modalInfoLine}>{successInfo.pet} · {successInfo.service}</Text>
@@ -376,7 +383,7 @@ export default function ScheduleCreate({ navigation, route }) {
               </View>
             )}
             <Pressable style={styles.modalBtn} onPress={handleSuccessClose}>
-              <Text style={styles.modalBtnText}>Ver meus agendamentos</Text>
+              <Text style={styles.modalBtnText}>{t.viewAppointments}</Text>
             </Pressable>
           </View>
         </View>
@@ -409,9 +416,9 @@ export default function ScheduleCreate({ navigation, route }) {
 
           {/* ── STEP 0: Pet ─────────────────────────────────────────── */}
           {step === 0 && (
-            <Section title="Qual pet você quer agendar?">
+            <Section title={t.choosePet}>
               {pets.length === 0 ? (
-                <Text style={styles.emptyMsg}>Cadastre um pet primeiro.</Text>
+                <Text style={styles.emptyMsg}>{t.noPets}</Text>
               ) : (
                 <View style={styles.chipWrap}>
                   {pets.map(p => {
@@ -438,7 +445,7 @@ export default function ScheduleCreate({ navigation, route }) {
 
           {/* ── STEP 1: Serviço ─────────────────────────────────────── */}
           {step === 1 && (
-            <Section title="Qual serviço?">
+            <Section title={t.chooseService}>
               {preselectedServiceId && (
                 <View style={styles.lockedChipWrap}>
                   <View style={[styles.chip, styles.chipSelected, { opacity: 0.75 }]}>
@@ -446,13 +453,11 @@ export default function ScheduleCreate({ navigation, route }) {
                       {services.find(s => s.id === preselectedServiceId)?.description} ✓
                     </Text>
                   </View>
-                  <Text style={styles.addExtrasLabel}>Adicionar serviços extras:</Text>
+                  <Text style={styles.addExtrasLabel}>{t.addExtras}</Text>
                 </View>
               )}
               {filteredServices.length === 0 ? (
-                <Text style={styles.emptyMsg}>
-                  Nenhum serviço disponível para a espécie deste pet.
-                </Text>
+                <Text style={styles.emptyMsg}>{t.noServicesForSpecies}</Text>
               ) : (
                 <View style={styles.chipWrap}>
                   {filteredServices
@@ -472,7 +477,7 @@ export default function ScheduleCreate({ navigation, route }) {
 
           {/* ── STEP 2: Data (calendário) ─────────────────────────────── */}
           {step === 2 && (
-            <Section title="Escolha a data">
+            <Section title={t.chooseDate}>
               <CalendarPicker value={date} onChange={setDate} />
               {date && (
                 <View style={styles.selectedDateBadge}>
@@ -490,13 +495,13 @@ export default function ScheduleCreate({ navigation, route }) {
 
           {/* ── STEP 3: Horários ─────────────────────────────────────── */}
           {step === 3 && (
-            <Section title="Escolha um horário">
+            <Section title={t.chooseTime}>
               {loadingTimes ? (
-                <Text style={styles.loadingMsg}>Buscando horários disponíveis...</Text>
+                <Text style={styles.loadingMsg}>{t.loadingTimes}</Text>
+              ) : tooLong ? (
+                <Text style={styles.tooLongMsg}>{t.servicesTooLong ?? 'Os serviços selecionados somam mais tempo do que o horário de funcionamento. Reduza a quantidade de serviços.'}</Text>
               ) : uniqueTimes.length === 0 ? (
-                <Text style={styles.emptyMsg}>
-                  Nenhum horário disponível para essa data e serviço. Volte e escolha outra data.
-                </Text>
+                <Text style={styles.emptyMsg}>{t.noAvailableTimes}</Text>
               ) : (
                 <>
                   {/* Time chips grid */}
@@ -526,7 +531,7 @@ export default function ScheduleCreate({ navigation, route }) {
                   {/* Employee selection (shown after time is picked) */}
                   {selectedTime && employeesForTime.length > 1 && (
                     <View style={styles.employeeSection}>
-                      <Text style={styles.employeeSectionLabel}>Escolha o profissional</Text>
+                      <Text style={styles.employeeSectionLabel}>{t.chooseProfessional}</Text>
                       {employeesForTime.map(opt => {
                         const isSel = selectedEmployee?.employee?.id === opt.employee.id;
                         return (
@@ -563,26 +568,26 @@ export default function ScheduleCreate({ navigation, route }) {
 
           {/* ── STEP 4: Confirmação ──────────────────────────────────── */}
           {step === 4 && (
-            <Section title="Confirmar Agendamento">
+            <Section title={t.confirmAppointmentTitle}>
               <View style={styles.confirmCard}>
-                <Row icon={<PawPrint size={15} color="#2794AD" />} label="Pet" value={selectedPet?.name} />
-                <Row icon={<Check size={15} color="#2794AD" />} label="Serviço" value={selectedServicesLabel} />
-                <Row icon={<Calendar size={15} color="#2794AD" />} label="Data" value={(() => {
+                <Row icon={<PawPrint size={15} color="#2794AD" />} label={t.petLabel} value={selectedPet?.name} />
+                <Row icon={<Check size={15} color="#2794AD" />} label={t.serviceLabel} value={selectedServicesLabel} />
+                <Row icon={<Calendar size={15} color="#2794AD" />} label={t.dateLabel} value={(() => {
                   const d = isoToDate(date);
                   return `${DAY_LABELS[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
                 })()} />
-                <Row icon={<Clock3 size={15} color="#2794AD" />} label="Horário" value={selectedTime?.slice(0, 5)} />
-                <Row label="Profissional" value={selectedEmployee?.employee?.name} />
-                <Row label="Duração" value={selectedEmployee?.durationTime ? `${selectedEmployee.durationTime} min` : '—'} />
-                <Row label="Total" value={`R$ ${Number(selectedEmployee?.servicePrice || 0).toFixed(2)}`} highlight />
+                <Row icon={<Clock3 size={15} color="#2794AD" />} label={t.timeLabel} value={selectedTime?.slice(0, 5)} />
+                <Row label={t.employee} value={selectedEmployee?.employee?.name} />
+                <Row label={t.duration} value={selectedEmployee?.durationTime ? `${selectedEmployee.durationTime} min` : '—'} />
+                <Row label={t.total} value={`R$ ${Number(selectedEmployee?.servicePrice || 0).toFixed(2)}`} highlight />
               </View>
 
-              <Text style={styles.fieldLabel}>Observações (opcional)</Text>
+              <Text style={styles.fieldLabel}>{t.obsOptional}</Text>
               <TextInput
                 style={styles.obsInput}
                 value={observations}
                 onChangeText={setObservations}
-                placeholder="Ex: pet com ansiedade..."
+                placeholder={t.obsPlaceholder}
                 placeholderTextColor="#B1DDE7"
                 multiline
                 numberOfLines={3}
@@ -597,7 +602,7 @@ export default function ScheduleCreate({ navigation, route }) {
             disabled={!canAdvance || saving}
           >
             <Text style={styles.nextBtnText}>
-              {saving ? 'Salvando...' : step === 4 ? 'Confirmar Agendamento' : 'Continuar'}
+              {saving ? t.saving : step === 4 ? t.confirmAppointmentBtn : t.continue}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -843,6 +848,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     lineHeight: 22,
+  },
+  tooLongMsg: {
+    fontFamily: 'Kanit_400Regular',
+    color: '#DA524D',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 20,
+    lineHeight: 22,
+    backgroundColor: '#FEF0EF',
+    borderRadius: 10,
+    padding: 14,
   },
 
   confirmCard: {

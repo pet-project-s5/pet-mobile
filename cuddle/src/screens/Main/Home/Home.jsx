@@ -17,6 +17,7 @@ import { useSettings, useT } from '../../../contexts/SettingsContext';
 
 const TIP_INTERVAL_MS = 30 * 60 * 1000;
 const MAX_NOTIFS = 50;
+const LAST_TIP_STORAGE_KEY = (userId) => `@cuddle:lastTipTime:${userId}`;
 
 const EMOJI_MAP = {
   cachorro:'🐶', gato:'🐱', ave:'🐦', peixe:'🐟',
@@ -38,7 +39,7 @@ function hoursUntil(dt) {
 }
 
 // ── Notification card ─────────────────────────────────────────────────────────
-function NotifCard({ item }) {
+function NotifCard({ item, t }) {
   const isAppt = item.type === 'appointment';
   const accent = isAppt ? '#E4B651' : item.isAI ? '#8671FF' : '#2794AD';
 
@@ -55,7 +56,7 @@ function NotifCard({ item }) {
         </View>
         <View style={nc.meta}>
           <Text style={[nc.title, { color: accent }]}>
-            {isAppt ? 'Lembrete de Agendamento' : item.isAI ? 'Dica de IA' : 'Dica de Cuidado'}
+            {isAppt ? t.appointmentReminder : item.isAI ? t.aiTip : t.careTip}
           </Text>
           <Text style={nc.time}>{formatDate(item.ts)}</Text>
         </View>
@@ -70,7 +71,7 @@ function NotifCard({ item }) {
 
       <Text style={nc.body}>
         {isAppt
-          ? `📅 ${new Date(item.startDateTime).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}`
+          ? `📅 ${new Date(item.startDateTime).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
           : item.tip
         }
       </Text>
@@ -78,9 +79,7 @@ function NotifCard({ item }) {
       {!isAppt && item.isAI && (
         <View style={nc.disclaimer}>
           <Sparkles size={10} color="#8671FF" />
-          <Text style={nc.disclaimerText}>
-            Gerado por IA · Consulte sempre um veterinário para orientações médicas.
-          </Text>
+          <Text style={nc.disclaimerText}>{t.aiDisclaimer}</Text>
         </View>
       )}
     </View>
@@ -169,14 +168,24 @@ export default function Home({ navigation, route }) {
   // ── AI tip (with mock fallback) ───────────────────────────────────────────
   const fetchTip = useCallback(async (petList) => {
     if (!petList?.length) return;
+    // Enforce cooldown: skip if a tip was pushed within the last interval
+    try {
+      const raw = await AsyncStorage.getItem(LAST_TIP_STORAGE_KEY(userId));
+      if (raw && Date.now() - parseInt(raw, 10) < TIP_INTERVAL_MS) return;
+    } catch { /* ignore */ }
+
     const notif = await pickAITip(petList);
     if (notif) {
+      await AsyncStorage.setItem(LAST_TIP_STORAGE_KEY(userId), String(Date.now()));
       pushNotif(notif);
     } else {
       const fallback = pickRandomTip(petList);
-      if (fallback) pushNotif({ type: 'tip', ...fallback, isAI: false });
+      if (fallback) {
+        await AsyncStorage.setItem(LAST_TIP_STORAGE_KEY(userId), String(Date.now()));
+        pushNotif({ type: 'tip', ...fallback, isAI: false });
+      }
     }
-  }, [pushNotif]);
+  }, [pushNotif, userId]);
 
   // ── Appointment reminders ─────────────────────────────────────────────────
   const checkAppointments = useCallback(async () => {
@@ -340,12 +349,12 @@ export default function Home({ navigation, route }) {
 
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Notificações</Text>
+              <Text style={styles.modalTitle}>{t.notifications}</Text>
               <View style={styles.modalHeaderRight}>
                 {notifQueue.length > 0 && (
                   <TouchableOpacity onPress={clearAll} style={styles.clearBtn}>
                     <Trash2 size={15} color="#DA524D" />
-                    <Text style={styles.clearText}>Limpar</Text>
+                    <Text style={styles.clearText}>{t.clearAll}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => setShowModal(false)} style={styles.closeBtn}>
@@ -363,10 +372,10 @@ export default function Home({ navigation, route }) {
               {notifQueue.length === 0 ? (
                 <View style={styles.emptyBox}>
                   <Bell size={40} color="#B1DDE7" />
-                  <Text style={styles.emptyText}>Nenhuma notificação ainda</Text>
+                  <Text style={styles.emptyText}>{t.noNotifications}</Text>
                 </View>
               ) : (
-                notifQueue.map(item => <NotifCard key={item.id} item={item} />)
+                notifQueue.map(item => <NotifCard key={item.id} item={item} t={t} />)
               )}
             </ScrollView>
           </Pressable>

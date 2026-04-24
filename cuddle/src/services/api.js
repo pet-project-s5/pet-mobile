@@ -32,12 +32,14 @@ async function request(path, options = {}, authenticated = false) {
 
   if (!response.ok) {
     let message = `Request failed: ${response.status}`;
+    let body = {};
     try {
-      const body = await response.json();
+      body = await response.json();
       message = body.message || body.error || message;
     } catch (_) {}
     const err = new Error(message);
     err.status = response.status;
+    Object.assign(err, body);
     throw err;
   }
 
@@ -121,10 +123,19 @@ export async function getAppointmentsByUser(ownerId, page = 0, size = 20) {
 
 export async function getAvailableTimes(petId, date, petOfferingIds) {
   // date: 'YYYY-MM-DD'
-  return request(`/api/appointments/available-times/${petId}`, {
-    method: 'POST',
-    body: JSON.stringify({ date, petOfferingIds }),
-  }, true);
+  // Returns { tooLong: false, results: [...] } or { tooLong: true, totalDuration, maxDuration }
+  try {
+    const data = await request(`/api/appointments/available-times/${petId}`, {
+      method: 'POST',
+      body: JSON.stringify({ date, petOfferingIds }),
+    }, true);
+    return { tooLong: false, results: data ?? [] };
+  } catch (e) {
+    if (e.status === 422) {
+      return { tooLong: true, totalDuration: e.totalDuration, maxDuration: e.maxDuration };
+    }
+    throw e;
+  }
 }
 
 export async function createAppointment(payload) {

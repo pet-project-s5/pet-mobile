@@ -14,24 +14,20 @@ import LoadingView from '../../Elements/LoadingView';
 
 function formatDateTime(dt) {
   if (!dt) return '—';
-  const d = new Date(dt);
-  return d.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Date(dt).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, t }) {
   const map = {
-    PENDING: { label: 'Pendente', color: '#E4B651' },
-    CONFIRMED: { label: 'Confirmado', color: '#2EC27E' },
-    CANCELLED: { label: 'Cancelado', color: '#DA524D' },
-    COMPLETED: { label: 'Concluído', color: '#2794AD' },
+    PENDING: { label: t.pending, color: '#E4B651' },
+    CONFIRMED: { label: t.confirmed, color: '#2EC27E' },
+    CANCELLED: { label: t.cancelled, color: '#DA524D' },
+    COMPLETED: { label: t.completed, color: '#2794AD' },
   };
-  const s = map[status] || { label: status || 'Agendado', color: '#2794AD' };
+  const s = map[status] || { label: t.scheduled, color: '#2794AD' };
   return (
     <View style={[styles.badge, { backgroundColor: s.color + '22' }]}>
       <Text style={[styles.badgeText, { color: s.color }]}>{s.label}</Text>
@@ -97,17 +93,15 @@ export default function Schedule({ navigation, route }) {
             <View style={styles.modalIconWrap}>
               <AlertTriangle size={40} color="#DA524D" />
             </View>
-            <Text style={styles.modalTitle}>Cancelar agendamento?</Text>
-            <Text style={styles.modalMsg}>
-              Esta ação não pode ser desfeita. Tem certeza que deseja cancelar?
-            </Text>
+            <Text style={styles.modalTitle}>{t.confirmCancelTitle}</Text>
+            <Text style={styles.modalMsg}>{t.confirmCancelMsg}</Text>
             <View style={styles.modalBtns}>
               <Pressable
                 style={styles.modalBtnNo}
                 onPress={() => setCancelModal({ visible: false, apptId: null })}
                 disabled={cancelling}
               >
-                <Text style={styles.modalBtnNoText}>Manter</Text>
+                <Text style={styles.modalBtnNoText}>{t.keep}</Text>
               </Pressable>
               <Pressable
                 style={[styles.modalBtnYes, cancelling && { opacity: 0.6 }]}
@@ -115,7 +109,7 @@ export default function Schedule({ navigation, route }) {
                 disabled={cancelling}
               >
                 <Text style={styles.modalBtnYesText}>
-                  {cancelling ? 'Cancelando...' : 'Sim, cancelar'}
+                  {cancelling ? t.cancelling : t.yesCancelBtn}
                 </Text>
               </Pressable>
             </View>
@@ -158,14 +152,14 @@ export default function Schedule({ navigation, route }) {
         {appointments.length === 0 ? (
           <View style={styles.empty}>
             <Calendar size={52} color="#B1DDE7" />
-            <Text style={styles.emptyText}>Nenhum agendamento encontrado</Text>
+            <Text style={styles.emptyText}>{t.noAppointments}</Text>
             <TouchableOpacity
               style={styles.emptyBtn}
               onPress={() =>
                 navigation?.navigate('ScheduleCreate', { userId, userName })
               }
             >
-              <Text style={styles.emptyBtnText}>Fazer meu primeiro agendamento</Text>
+              <Text style={styles.emptyBtnText}>{t.firstAppointment}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -176,7 +170,7 @@ export default function Schedule({ navigation, route }) {
                   <Text style={styles.petName}>{appt.pet?.name ?? '—'}</Text>
                   <Text style={styles.offeringName}>{appt.petOfferingNames ?? '—'}</Text>
                 </View>
-                <StatusBadge status={appt.status} />
+                <StatusBadge status={appt.status} t={t} />
               </View>
 
               <View style={styles.cardMid}>
@@ -186,22 +180,28 @@ export default function Schedule({ navigation, route }) {
 
               {appt.employee && (
                 <Text style={styles.employeeText}>
-                  Funcionário: {appt.employee.name}
+                  {t.employee}: {appt.employee.name}
                 </Text>
               )}
 
               {appt.totalPrice != null && (
                 <Text style={styles.priceText}>
-                  Total: R$ {Number(appt.totalPrice).toFixed(2)}
+                  {t.total}: R$ {Number(appt.totalPrice).toFixed(2)}
                 </Text>
               )}
+
+              {appt.observations ? (
+                <Text style={styles.observationsText}>
+                  Obs: {appt.observations}
+                </Text>
+              ) : null}
 
               <TouchableOpacity
                 style={styles.deleteBtn}
                 onPress={() => handleDelete(appt.id)}
               >
                 <Trash2 size={14} color="#DA524D" />
-                <Text style={styles.deleteBtnText}>Cancelar agendamento</Text>
+                <Text style={styles.deleteBtnText}>{t.cancelAppointment}</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -323,6 +323,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Kanit_700Bold',
     fontSize: 13,
     marginBottom: 8,
+  },
+  observationsText: {
+    color: '#5FAFC2',
+    fontFamily: 'Kanit_400Regular',
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginBottom: 6,
   },
   deleteBtn: {
     flexDirection: 'row',

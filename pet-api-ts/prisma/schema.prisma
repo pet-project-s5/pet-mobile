@@ -87,6 +87,7 @@ model Appointment {
   observations     String?
   startDateTime    DateTime @map("start_date_time")
   endDateTime      DateTime @map("end_date_time")
+  status           String   @default("CONFIRMED") @map("status")
   isFinished       Boolean  @default(false) @map("is_finished")
   createdAt        DateTime @default(now()) @map("created_at")
   lastUpdate       DateTime @updatedAt @map("last_update")
