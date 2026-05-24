@@ -14,6 +14,7 @@ import ScheduleCreate from './src/screens/Main/Schedule/ScheduleCreate';
 import PetProfile from './src/screens/Main/Pet/PetProfile';
 import PetEdit from './src/screens/Main/Pet/PetEdit';
 import UserProfile from './src/screens/Main/Profile/UserProfile';
+import Dashboard from './src/screens/Main/Dashboard/DashboardScreen'; // 👈 novo
 
 const Stack = createNativeStackNavigator();
 
@@ -38,19 +39,20 @@ function ThemedApp({ fontsLoaded }) {
   if (!fontsLoaded) return null;
 
   return (
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
-          <Stack.Screen name="Splash" component={Splash} />
-          <Stack.Screen name="Login" component={Login} />
-          <Stack.Screen name="Register" component={Register} />
-          <Stack.Screen name="Home" component={Home} />
-          <Stack.Screen name="Services" component={Services} />
-          <Stack.Screen name="Schedule" component={Schedule} />
-          <Stack.Screen name="ScheduleCreate" component={ScheduleCreate} />
-          <Stack.Screen name="PetProfile" component={PetProfile} />
-          <Stack.Screen name="PetEdit" component={PetEdit} />
-          <Stack.Screen name="UserProfile" component={UserProfile} />
-        </Stack.Navigator>
-      </NavigationContainer>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
+        <Stack.Screen name="Splash"          component={Splash} />
+        <Stack.Screen name="Login"           component={Login} />
+        <Stack.Screen name="Register"        component={Register} />
+        <Stack.Screen name="Home"            component={Home} />
+        <Stack.Screen name="Services"        component={Services} />
+        <Stack.Screen name="Schedule"        component={Schedule} />
+        <Stack.Screen name="ScheduleCreate"  component={ScheduleCreate} />
+        <Stack.Screen name="PetProfile"      component={PetProfile} />
+        <Stack.Screen name="PetEdit"         component={PetEdit} />
+        <Stack.Screen name="UserProfile"     component={UserProfile} />
+        <Stack.Screen name="Dashboard"       component={Dashboard} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }

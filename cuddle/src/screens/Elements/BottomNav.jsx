@@ -1,12 +1,13 @@
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { PawPrint, Scissors, Clock3, UserRound } from 'lucide-react-native';
+import { PawPrint, Scissors, Clock3, UserRound, BarChart2 } from 'lucide-react-native'; // 👈 BarChart2 adicionado
 import { useSettings } from '../../contexts/SettingsContext';
 
-const ACTIVE = '#1E93AD';
+const ACTIVE   = '#1E93AD';
 const INACTIVE = '#B8DFE8';
 
 export default function BottomNav({ navigation, activeTab, userId, userName = '' }) {
   const { theme } = useSettings();
+
   const go = (screen) => {
     const state = navigation?.getState?.();
     const currentName = state?.routes?.[state?.index]?.name;
@@ -16,6 +17,7 @@ export default function BottomNav({ navigation, activeTab, userId, userName = ''
 
   return (
     <View style={[styles.container, { backgroundColor: theme.navBg, borderTopColor: theme.border }]}>
+
       <TouchableOpacity
         style={styles.navButton}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -43,6 +45,16 @@ export default function BottomNav({ navigation, activeTab, userId, userName = ''
         <Clock3 size={26} color={activeTab === 'schedule' ? ACTIVE : INACTIVE} />
       </TouchableOpacity>
 
+      {/* 👇 novo botão Dashboard */}
+      <TouchableOpacity
+        style={styles.navButton}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        activeOpacity={0.75}
+        onPress={() => go('Dashboard')}
+      >
+        <BarChart2 size={26} color={activeTab === 'dashboard' ? ACTIVE : INACTIVE} />
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.navButton}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -51,6 +63,7 @@ export default function BottomNav({ navigation, activeTab, userId, userName = ''
       >
         <UserRound size={26} color={activeTab === 'profile' ? ACTIVE : INACTIVE} />
       </TouchableOpacity>
+
     </View>
   );
 }
@@ -67,7 +80,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   navButton: {
-    width: 52, height: 52,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
