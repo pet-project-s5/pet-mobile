@@ -3,7 +3,8 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { useFonts, Kanit_400Regular } from '@expo-google-fonts/kanit';
 import { Silkscreen_700Bold } from '@expo-google-fonts/silkscreen';
 import { KronaOne_400Regular } from '@expo-google-fonts/krona-one';
-import { restoreAuth } from '../../services/auth';
+import { getOwnerById } from '../../services/api';
+import { restoreAuth, setAuth } from '../../services/auth';
 
 export default function Splash({ navigation }) {
   const [fontsLoaded] = useFonts({
@@ -17,10 +18,19 @@ export default function Splash({ navigation }) {
     const timer = setTimeout(async () => {
       const session = await restoreAuth();
       if (session) {
-        navigation?.replace('Home', {
-          userId: session.userId,
-          userName: session.userName,
-        });
+        let userId = session.userId;
+        let userName = session.userName;
+        let isAdm = Boolean(session.isAdm);
+
+        try {
+          const me = await getOwnerById();
+          if (me?.id != null) userId = me.id;
+          if (me?.name) userName = me.name;
+          if (typeof me?.isAdm === 'boolean') isAdm = me.isAdm;
+          await setAuth(session.token, userId, userName, isAdm);
+        } catch (_) {}
+
+        navigation?.replace('Home', { userId, userName, isAdm });
       } else {
         navigation?.replace('Login');
       }

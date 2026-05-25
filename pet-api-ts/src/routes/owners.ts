@@ -76,6 +76,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     name: owner.name,
     email: owner.email,
     token,
+    isAdm: owner.isAdm,
     isAdmin: owner.isAdm,
   });
 });
@@ -123,6 +124,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       number: data.number,
       neighborhood: data.neighborhood,
       complement: data.complement ?? null,
+      isAdm: false,
     },
     select: {
       id: true,

@@ -151,3 +151,14 @@ export async function deleteAppointment(appointmentId) {
     method: 'DELETE',
   }, true);
 }
+
+// ─── ANALYTICS (Dashboard) ───────────────────────────────────────────────────
+
+export async function getAnalyticsDistricts() {
+  const data = await request('/api/analytics/districts', {}, true);
+  return data?.districts ?? [];
+}
+
+export async function getAnalyticsDashboard(region) {
+  return request(`/api/analytics/dashboard?region=${encodeURIComponent(region)}`, {}, true);
+}

@@ -81,7 +81,7 @@ export default function Register({ navigation }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [successModal, setSuccessModal] = useState({ visible: false, name: '', userId: null });
+  const [successModal, setSuccessModal] = useState({ visible: false, name: '', userId: null, isAdm: false });
 
   const [fontsLoaded] = useFonts({ Kanit_400Regular, KronaOne_400Regular });
   if (!fontsLoaded) return null;
@@ -194,8 +194,9 @@ export default function Register({ navigation }) {
       await registerRequest(payload);
       const data = await loginRequest(payload.email, payload.password);
       if (!data?.token) throw new Error('Login automático falhou.');
-      setAuth(data.token, data.id, data.name);
-      setSuccessModal({ visible: true, name: data.name, userId: data.id });
+      const isAdm = Boolean(data?.isAdm ?? data?.isAdmin);
+      await setAuth(data.token, data.id, data.name, isAdm);
+      setSuccessModal({ visible: true, name: data.name, userId: data.id, isAdm });
     } catch (error) {
       setSubmitted(false);
       if (error.status === 409) {
@@ -221,8 +222,12 @@ export default function Register({ navigation }) {
   const inputRow = (hasError) => [styles.inputWrapper, hasError && styles.inputError];
 
   const handleEnterApp = () => {
-    setSuccessModal({ visible: false, name: '', userId: null });
-    navigation?.replace('Home', { userId: successModal.userId, userName: successModal.name });
+    setSuccessModal({ visible: false, name: '', userId: null, isAdm: false });
+    navigation?.replace('Home', {
+      userId: successModal.userId,
+      userName: successModal.name,
+      isAdm: Boolean(successModal.isAdm),
+    });
   };
 
   return (

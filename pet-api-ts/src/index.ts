@@ -6,6 +6,7 @@ import ownersRouter from "./routes/owners";
 import petsRouter from "./routes/pets";
 import petOfferingsRouter from "./routes/petOfferings";
 import appointmentsRouter from "./routes/appointments";
+import analyticsRouter from "./routes/analytics";
 
 const app = express();
 const PORT = process.env.PORT ?? 8080;
@@ -19,6 +20,7 @@ app.use("/api/owners", ownersRouter);
 app.use("/api/pets", petsRouter);
 app.use("/api/pet-offerings", petOfferingsRouter);
 app.use("/api/appointments", appointmentsRouter);
+app.use("/api/analytics", analyticsRouter);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/health", (_req: Request, res: Response) => {
