@@ -8,6 +8,7 @@ import BottomNav from '../../Elements/BottomNav';
 import { getServices } from '../../../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoadingView from '../../Elements/LoadingView';
+import { resolveSessionParams } from '../../../utils/session';
 
 const SERVICE_COLORS = [
   '#1E93AD', '#E4B651', '#2EC27E', '#DA524D', '#8671FF',
@@ -46,8 +47,8 @@ export default function Services({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { theme } = useSettings();
   const t = useT();
-  const userId = route?.params?.userId;
-  const userName = route?.params?.userName || '';
+  const { userId, userName } = resolveSessionParams(route?.params);
+  const displayName = userName || 'Tutor';
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -91,7 +92,7 @@ export default function Services({ navigation, route }) {
             }
           </TouchableOpacity>
           <Text style={styles.greeting}>
-            {userName ? `Olá, ${userName}!` : 'Nossos Serviços'}
+            {displayName ? `Olá, ${displayName}!` : 'Nossos Serviços'}
           </Text>
         </View>
 

@@ -9,6 +9,7 @@ import BottomNav from '../../Elements/BottomNav';
 import { getPetById, createPet, updatePet } from '../../../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoadingView from '../../Elements/LoadingView';
+import { resolveSessionParams } from '../../../utils/session';
 
 // ---------------------------------------------------------------------------
 // Static data
@@ -160,9 +161,8 @@ function BreedPicker({ label, value, options, onSelect }) {
 
 export default function PetEdit({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const ownerId  = route?.params?.ownerId || route?.params?.userId;
+  const { userId: ownerId, userName } = resolveSessionParams(route?.params);
   const petId    = route?.params?.petId; // undefined = create mode
-  const userName = route?.params?.userName;
   const isEditing = !!petId;
 
   const [loading, setLoading] = useState(isEditing);
@@ -243,7 +243,7 @@ export default function PetEdit({ navigation, route }) {
       setSaving(true);
       if (isEditing) {
         await updatePet(petId, payload);
-        navigation?.navigate('PetProfile', { petId, ownerId, userName });
+        navigation?.replace('PetProfile', { petId, ownerId, userName });
       } else {
         await createPet(ownerId, payload);
         navigation?.replace('Home', { userId: ownerId, userName });

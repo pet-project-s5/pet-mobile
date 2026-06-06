@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Pressable } from 'react-native';
 import { ChevronLeft, SquarePen, Plus, Camera } from 'lucide-react-native';
 import { pickFromGallery, takePhoto as pickCamera } from '../../../services/photoPicker';
@@ -8,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoadingView from '../../Elements/LoadingView';
 import { getPetPhoto, savePetPhoto, deletePetPhoto } from '../../../services/photoStorage';
 import ImageEditModal from '../../../components/common/ImageEditModal';
+import { resolveSessionParams } from '../../../utils/session';
 
 function InfoBox({ label, value }) {
   return (
@@ -33,31 +35,32 @@ function petEmoji(species = '') {
 
 export default function PetProfile({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const ownerId = route?.params?.ownerId || route?.params?.userId;
+  const { userId: ownerId, userName } = resolveSessionParams(route?.params);
   const petId = route?.params?.petId;
-  const userName = route?.params?.userName;
   const [pet, setPet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [photoUri, setPhotoUri] = useState(null);
   const [photoModal, setPhotoModal] = useState(false);
   const [editModal, setEditModal] = useState({ visible: false, rawUri: null });
 
-  useEffect(() => {
-    async function loadPet() {
-      try {
-        setLoading(true);
-        const data = await getPetById(petId, ownerId);
-        setPet(data);
-      } catch (error) {
-        console.log('Erro ao carregar pet:', error.message);
-      } finally {
-        setLoading(false);
-      }
+  const loadPet = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getPetById(petId, ownerId);
+      setPet(data);
+    } catch (error) {
+      console.log('Erro ao carregar pet:', error.message);
+    } finally {
+      setLoading(false);
     }
-
-    if (petId && ownerId) loadPet();
-    getPetPhoto(petId).then(uri => setPhotoUri(uri));
   }, [petId, ownerId]);
+
+  useFocusEffect(useCallback(() => {
+    if (petId && ownerId) loadPet();
+    getPetPhoto(petId)
+      .then(uri => setPhotoUri(uri))
+      .catch(() => setPhotoUri(null));
+  }, [loadPet, ownerId, petId]));
 
   async function handleGallery() {
     setPhotoModal(false);

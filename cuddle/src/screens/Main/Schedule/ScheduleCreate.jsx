@@ -10,6 +10,7 @@ import {
 } from '../../../services/api';
 import LoadingView from '../../Elements/LoadingView';
 import { useSettings, useT } from '../../../contexts/SettingsContext';
+import { resolveSessionParams } from '../../../utils/session';
 
 // ─── Service IDs allowed per species ─────────────────────────────────────────
 // 1=Banho 2=Tosa higiênica 3=Tosa máquina 4=Tosa bebê 5=Botinha
@@ -188,8 +189,7 @@ export default function ScheduleCreate({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { theme } = useSettings();
   const t = useT();
-  const userId = route?.params?.userId;
-  const userName = route?.params?.userName;
+  const { userId, userName } = resolveSessionParams(route?.params);
   const initialPetId = route?.params?.petId;
   const preselectedServiceId = route?.params?.preselectedServiceId;
 

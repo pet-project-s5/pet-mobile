@@ -11,6 +11,7 @@ import BottomNav from '../../Elements/BottomNav';
 import { getAppointmentsByUser, deleteAppointment } from '../../../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoadingView from '../../Elements/LoadingView';
+import { resolveSessionParams } from '../../../utils/session';
 
 function formatDateTime(dt) {
   if (!dt) return '—';
@@ -39,17 +40,15 @@ export default function Schedule({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { theme } = useSettings();
   const t = useT();
-  const userId = route?.params?.userId;
-  const userName = route?.params?.userName || '';
+  const { userId, userName } = resolveSessionParams(route?.params);
+  const displayName = userName || 'Tutor';
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelModal, setCancelModal] = useState({ visible: false, apptId: null });
   const [cancelling, setCancelling] = useState(false);
   const [userPhotoUri, setUserPhotoUri] = useState(null);
 
-  useFocusEffect(useCallback(() => { getUserPhoto(userId).then(setUserPhotoUri); }, [userId]));
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getAppointmentsByUser(userId);
@@ -59,11 +58,14 @@ export default function Schedule({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, [userId]);
+
+  useFocusEffect(useCallback(() => {
+    loadData();
+    getUserPhoto(userId)
+      .then(setUserPhotoUri)
+      .catch(() => setUserPhotoUri(null));
+  }, [loadData, userId]));
 
   const handleDelete = (apptId) => {
     setCancelModal({ visible: true, apptId });
@@ -132,7 +134,7 @@ export default function Schedule({ navigation, route }) {
             }
           </TouchableOpacity>
           <Text style={styles.greeting}>
-            {userName ? `Olá, ${userName}!` : 'Agendamentos'}
+            {displayName ? `Olá, ${displayName}!` : 'Agendamentos'}
           </Text>
         </View>
 
