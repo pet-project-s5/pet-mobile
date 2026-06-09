@@ -32,7 +32,7 @@ export default function Splash({ navigation }) {
 
         navigation?.reset({
           index: 0,
-          routes: [{ name: 'Home', params: { userId, userName, isAdm } }],
+          routes: [{ name: isAdm ? 'Dashboard' : 'Home', params: { userId, userName, isAdm } }],
         });
       } else {
         navigation?.reset({

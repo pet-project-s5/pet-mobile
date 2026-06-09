@@ -204,6 +204,62 @@ router.post(
   }
 );
 
+// ── GET /api/appointments  (admin — all appointments) ───────────────────────
+router.get("/", async (req: Request, res: Response): Promise<void> => {
+  const owner = await prisma.owner.findUnique({
+    where: { id: (req.user as any).id },
+    select: { isAdm: true },
+  });
+
+  if (!owner?.isAdm) {
+    res.status(403).json({ message: "Acesso restrito a administradores." });
+    return;
+  }
+
+  const page = parseInt((req.query.page as string) ?? "0", 10);
+  const size = parseInt((req.query.size as string) ?? "20", 10);
+  const skip = page * size;
+
+  const [appointments, totalElements] = await Promise.all([
+    prisma.appointment.findMany({
+      include: {
+        pet: {
+          include: {
+            owner: { select: { id: true, name: true } },
+          },
+        },
+        employee: { select: { id: true, name: true } },
+      },
+      orderBy: { startDateTime: "desc" },
+      skip,
+      take: size,
+    }),
+    prisma.appointment.count(),
+  ]);
+
+  const totalPages = Math.ceil(totalElements / size);
+
+  const content = appointments.map((a) => ({
+    id:               a.id,
+    petId:            a.petId,
+    petName:          a.pet.name,
+    petSpecies:       a.pet.species,
+    ownerId:          a.pet.owner.id,
+    ownerName:        a.pet.owner.name,
+    employeeId:       a.employeeId,
+    employeeName:     a.employee.name,
+    petOfferingNames: a.petOfferingNames,
+    totalPrice:       a.totalPrice,
+    observations:     a.observations,
+    startDateTime:    a.startDateTime,
+    endDateTime:      a.endDateTime,
+    status:           a.status,
+    createdAt:        a.createdAt,
+  }));
+
+  res.json({ content, totalElements, totalPages, size, number: page, first: page === 0, last: page >= totalPages - 1, empty: content.length === 0 });
+});
+
 // ── GET /api/appointments/owner/:ownerId ────────────────────────────────────
 router.get(
   "/owner/:ownerId",

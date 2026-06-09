@@ -10,6 +10,7 @@ import { getPetById, createPet, updatePet } from '../../../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoadingView from '../../Elements/LoadingView';
 import { resolveSessionParams } from '../../../utils/session';
+import { useT } from '../../../contexts/SettingsContext';
 
 // ---------------------------------------------------------------------------
 // Static data
@@ -111,7 +112,7 @@ function Field({ label, placeholder, value, onChangeText, keyboardType = 'defaul
   );
 }
 
-function BreedPicker({ label, value, options, onSelect }) {
+function BreedPicker({ label, value, options, onSelect, placeholder = 'Selecione a raça' }) {
   const [open, setOpen] = useState(false);
 
   const handleSelect = (breed) => {
@@ -125,7 +126,7 @@ function BreedPicker({ label, value, options, onSelect }) {
 
       <TouchableOpacity style={styles.pickerBtn} onPress={() => setOpen(true)} activeOpacity={0.8}>
         <Text style={value ? styles.pickerBtnText : styles.pickerPlaceholder}>
-          {value || 'Selecione a raça'}
+          {value || placeholder}
         </Text>
         <ChevronDown size={18} color="#5FAFC2" />
       </TouchableOpacity>
@@ -160,6 +161,7 @@ function BreedPicker({ label, value, options, onSelect }) {
 // ---------------------------------------------------------------------------
 
 export default function PetEdit({ navigation, route }) {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { userId: ownerId, userName } = resolveSessionParams(route?.params);
   const petId    = route?.params?.petId; // undefined = create mode
@@ -212,16 +214,16 @@ export default function PetEdit({ navigation, route }) {
     loadPet();
   }, [petId, ownerId, isEditing]);
 
-  if (loading) return <LoadingView message="Carregando pet..." />;
+  if (loading) return <LoadingView message={t.loadingPet} />;
 
   const validate = () => {
-    if (!name.trim())               return 'Informe o nome do pet.';
-    if (!species)                   return 'Selecione a espécie.';
-    if (!breed.trim())              return 'Selecione a raça.';
-    if (hasFur && !coat)            return 'Selecione o tipo de pelo.';
-    if (!age || isNaN(Number(age))) return 'Informe a idade (em anos).';
-    if (!size)                      return 'Selecione o porte.';
-    if (!sex)                       return 'Selecione o sexo.';
+    if (!name.trim())               return t.errPetName;
+    if (!species)                   return t.errSpecies;
+    if (!breed.trim())              return t.errBreed;
+    if (hasFur && !coat)            return t.errCoat;
+    if (!age || isNaN(Number(age))) return t.errAge;
+    if (!size)                      return t.errSize;
+    if (!sex)                       return t.errSex;
     return null;
   };
 
@@ -274,7 +276,7 @@ export default function PetEdit({ navigation, route }) {
                 : <ChevronLeft size={22} color="#DA524D" />}
             </TouchableOpacity>
             <Text style={styles.headerTitle}>
-              {isEditing ? 'Editar Pet' : 'Novo Pet'}
+              {isEditing ? t.editPet : t.newPet}
             </Text>
             <TouchableOpacity
               style={[styles.iconBtn, styles.iconBtnGreen]}
@@ -292,11 +294,11 @@ export default function PetEdit({ navigation, route }) {
 
           {/* Form */}
           <View style={styles.form}>
-            <Field label="Nome" placeholder="Ex: Rex" value={name} onChangeText={setName} />
+            <Field label={t.petNameLabel} placeholder="Ex: Rex" value={name} onChangeText={setName} />
 
             {/* Species chip picker */}
             <ChipGroup
-              label="Espécie"
+              label={t.speciesLabel}
               options={SPECIES_OPTIONS}
               selected={species}
               onSelect={handleSpeciesChange}
@@ -305,15 +307,16 @@ export default function PetEdit({ navigation, route }) {
             {/* Breed dropdown — only shown when a species is selected */}
             {species ? (
               <BreedPicker
-                label="Raça"
+                label={t.breedLabel}
                 value={breed}
                 options={breedList}
                 onSelect={setBreed}
+                placeholder={t.selectBreed}
               />
             ) : null}
 
             <Field
-              label="Idade (anos)"
+              label={t.ageYears}
               placeholder="Ex: 3"
               value={age}
               onChangeText={setAge}
@@ -323,11 +326,11 @@ export default function PetEdit({ navigation, route }) {
 
             {/* Coat — only for species WITH fur */}
             {hasFur && (
-              <ChipGroup label="Tipo de Pelo" options={COAT_OPTIONS} selected={coat} onSelect={setCoat} />
+              <ChipGroup label={t.coatType} options={COAT_OPTIONS} selected={coat} onSelect={setCoat} />
             )}
 
-            <ChipGroup label="Porte"  options={SIZE_OPTIONS} selected={size} onSelect={setSize} />
-            <ChipGroup label="Sexo"   options={SEX_OPTIONS}  selected={sex}  onSelect={setSex}  />
+            <ChipGroup label={t.sizeLabel} options={SIZE_OPTIONS} selected={size} onSelect={setSize} />
+            <ChipGroup label={t.sexLabel}  options={SEX_OPTIONS}  selected={sex}  onSelect={setSex}  />
           </View>
 
           <TouchableOpacity
@@ -336,7 +339,7 @@ export default function PetEdit({ navigation, route }) {
             disabled={saving}
           >
             <Text style={styles.saveBtnText}>
-              {saving ? 'Salvando...' : isEditing ? 'Salvar Alterações' : 'Cadastrar Pet'}
+              {saving ? t.saving : isEditing ? t.saveChanges : t.registerPet}
             </Text>
           </TouchableOpacity>
         </ScrollView>

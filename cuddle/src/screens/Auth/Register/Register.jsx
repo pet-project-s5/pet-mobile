@@ -15,6 +15,7 @@ import {
 import { CheckCircle } from 'lucide-react-native';
 import { register as registerRequest, login as loginRequest } from '../../../services/api';
 import { setAuth } from '../../../services/auth';
+import { useT } from '../../../contexts/SettingsContext';
 
 // ─── Masks ────────────────────────────────────────────────────────────────────
 function maskCPF(digits) {
@@ -83,6 +84,7 @@ export default function Register({ navigation }) {
   const [submitted, setSubmitted] = useState(false);
   const [successModal, setSuccessModal] = useState({ visible: false, name: '', userId: null, isAdm: false });
 
+  const t = useT();
   const [fontsLoaded] = useFonts({ Kanit_400Regular, KronaOne_400Regular });
   if (!fontsLoaded) return null;
 
@@ -245,17 +247,15 @@ export default function Register({ navigation }) {
               <CheckCircle size={56} color="#2EC27E" />
             </View>
 
-            <Text style={styles.modalTitle}>Conta criada!</Text>
+            <Text style={styles.modalTitle}>{t.accountCreated}</Text>
             <Text style={styles.modalSubtitle}>
-              Bem-vindo(a) ao Cuddle,{'\n'}
+              {t.welcomeTo}{'\n'}
               <Text style={styles.modalName}>{successModal.name}</Text> 🐾
             </Text>
-            <Text style={styles.modalHint}>
-              Seu cadastro foi concluído com sucesso. Agora você pode agendar serviços e cuidar do seu pet com amor.
-            </Text>
+            <Text style={styles.modalHint}>{t.accountCreatedHint}</Text>
 
             <TouchableOpacity style={styles.modalBtn} onPress={handleEnterApp}>
-              <Text style={styles.modalBtnText}>Entrar no app</Text>
+              <Text style={styles.modalBtnText}>{t.enterApp}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -285,13 +285,13 @@ export default function Register({ navigation }) {
             {/* ── STEP 0 ── */}
             {currentStep === 0 && (
               <View style={styles.stepCard}>
-                <Text style={styles.title}>Dados Pessoais</Text>
+                <Text style={styles.title}>{t.personalData}</Text>
 
                 <View style={inputRow(errors.name)}>
                   <FolderPen color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Nome completo"
+                    placeholder={t.fullName}
                     placeholderTextColor={ic}
                     value={name}
                     onChangeText={(v) => { setName(v); clearError('name'); }}
@@ -330,7 +330,7 @@ export default function Register({ navigation }) {
             {/* ── STEP 1 ── */}
             {currentStep === 1 && (
               <View style={styles.stepCard}>
-                <Text style={styles.title}>Endereço</Text>
+                <Text style={styles.title}>{t.addressStep}</Text>
 
                 <View style={inputRow(errors.cep)}>
                   <MapPin color={ic} size={is} style={styles.icon} />
@@ -350,7 +350,7 @@ export default function Register({ navigation }) {
                   <Map color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Rua"
+                    placeholder={t.streetPlaceholder}
                     placeholderTextColor={ic}
                     value={street}
                     onChangeText={(v) => { setStreet(v); clearError('street'); }}
@@ -362,7 +362,7 @@ export default function Register({ navigation }) {
                   <Hash color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Número da residência"
+                    placeholder={t.numberPlaceholder}
                     placeholderTextColor={ic}
                     keyboardType="numeric"
                     maxLength={10}
@@ -376,7 +376,7 @@ export default function Register({ navigation }) {
                   <Building2 color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Bairro"
+                    placeholder={t.neighborhoodPlaceholder}
                     placeholderTextColor={ic}
                     value={neighborhood}
                     onChangeText={(v) => { setNeighborhood(v); clearError('neighborhood'); }}
@@ -388,7 +388,7 @@ export default function Register({ navigation }) {
                   <MapPin color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Complemento (opcional)"
+                    placeholder={t.complementPlaceholder}
                     placeholderTextColor={ic}
                     value={complement}
                     onChangeText={(v) => { setComplement(v); clearError('complement'); }}
@@ -401,7 +401,7 @@ export default function Register({ navigation }) {
             {/* ── STEP 2 ── */}
             {currentStep === 2 && (
               <View style={styles.stepCard}>
-                <Text style={styles.title}>Dados de Acesso</Text>
+                <Text style={styles.title}>{t.accessData}</Text>
 
                 <View style={inputRow(errors.email)}>
                   <Mail color={ic} size={is} style={styles.icon} />
@@ -421,7 +421,7 @@ export default function Register({ navigation }) {
                   <Mail color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Confirmar E-mail"
+                    placeholder={t.confirmEmail}
                     placeholderTextColor={ic}
                     keyboardType="email-address"
                     autoCapitalize="none"
@@ -451,7 +451,7 @@ export default function Register({ navigation }) {
                   <Lock color={ic} size={is} style={styles.icon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Confirmar Senha"
+                    placeholder={t.confirmPassword}
                     placeholderTextColor={ic}
                     secureTextEntry={!showConfirmPassword}
                     value={confirmPassword}
@@ -469,19 +469,19 @@ export default function Register({ navigation }) {
             <View style={styles.actionsWrapper}>
               <TouchableOpacity style={styles.buttonPrimary} onPress={handleContinuar} disabled={loading || submitted}>
                 <Text style={styles.buttonPrimaryText}>
-                  {loading ? 'Salvando...' : currentStep < 2 ? 'Continuar' : 'Cadastrar'}
+                  {loading ? t.saving : currentStep < 2 ? t.continue : t.registerBtn}
                 </Text>
               </TouchableOpacity>
 
               {currentStep > 0 && (
                 <TouchableOpacity style={styles.buttonOutline} onPress={() => setCurrentStep(currentStep - 1)}>
-                  <Text style={styles.buttonOutlineText}>Voltar</Text>
+                  <Text style={styles.buttonOutlineText}>{t.back}</Text>
                 </TouchableOpacity>
               )}
 
               {currentStep === 0 && (
                 <TouchableOpacity style={styles.buttonSecondary} onPress={() => navigation?.navigate('Login')}>
-                  <Text style={styles.buttonSecondaryText}>Já tenho uma conta</Text>
+                  <Text style={styles.buttonSecondaryText}>{t.alreadyHaveAccount}</Text>
                 </TouchableOpacity>
               )}
             </View>

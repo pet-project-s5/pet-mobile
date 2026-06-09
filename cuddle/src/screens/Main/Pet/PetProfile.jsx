@@ -10,6 +10,7 @@ import LoadingView from '../../Elements/LoadingView';
 import { getPetPhoto, savePetPhoto, deletePetPhoto } from '../../../services/photoStorage';
 import ImageEditModal from '../../../components/common/ImageEditModal';
 import { resolveSessionParams } from '../../../utils/session';
+import { useT } from '../../../contexts/SettingsContext';
 
 function InfoBox({ label, value }) {
   return (
@@ -34,6 +35,7 @@ function petEmoji(species = '') {
 }
 
 export default function PetProfile({ navigation, route }) {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const { userId: ownerId, userName } = resolveSessionParams(route?.params);
   const petId = route?.params?.petId;
@@ -86,7 +88,7 @@ export default function PetProfile({ navigation, route }) {
     setPhotoUri(null);
   }
 
-  if (loading || !pet) return <LoadingView message="Carregando perfil do pet..." />;
+  if (loading || !pet) return <LoadingView message={t.loadingPetProfile} />;
 
   const sexLabel = pet.sex === 'M' || pet.sex?.toLowerCase() === 'macho' ? 'Macho' : 'Fêmea';
 
@@ -98,18 +100,18 @@ export default function PetProfile({ navigation, route }) {
           <View style={styles.actionSheet}>
             <View style={styles.sheetHandle} />
             <TouchableOpacity style={styles.sheetOption} onPress={handleCamera}>
-              <Text style={styles.sheetOptionText}>Tirar foto</Text>
+              <Text style={styles.sheetOptionText}>{t.takePhoto}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.sheetOption} onPress={handleGallery}>
-              <Text style={styles.sheetOptionText}>Escolher da galeria</Text>
+              <Text style={styles.sheetOptionText}>{t.chooseGallery}</Text>
             </TouchableOpacity>
             {photoUri && (
               <TouchableOpacity style={styles.sheetOption} onPress={removePhoto}>
-                <Text style={[styles.sheetOptionText, { color: '#DA524D' }]}>Remover foto</Text>
+                <Text style={[styles.sheetOptionText, { color: '#DA524D' }]}>{t.removePhoto}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.sheetOption, { marginTop: 4 }]} onPress={() => setPhotoModal(false)}>
-              <Text style={[styles.sheetOptionText, { color: '#B1DDE7' }]}>Cancelar</Text>
+              <Text style={[styles.sheetOptionText, { color: '#B1DDE7' }]}>{t.cancel}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -152,16 +154,16 @@ export default function PetProfile({ navigation, route }) {
         <Text style={styles.petSpecies}>{pet.species} — {pet.breed}</Text>
 
         <View style={styles.infoRow}>
-          <InfoBox label="Sexo" value={sexLabel} />
-          <InfoBox label="Idade" value={pet.age != null ? `${pet.age} anos` : '—'} />
-          <InfoBox label="Porte" value={pet.size} />
+          <InfoBox label={t.sexInfoLabel} value={sexLabel} />
+          <InfoBox label={t.ageInfoLabel} value={pet.age != null ? `${pet.age} ${t.yearsUnit}` : '—'} />
+          <InfoBox label={t.sizeInfoLabel} value={pet.size} />
         </View>
 
         <View style={styles.infoRow}>
-          <InfoBox label="Pelo" value={pet.coat} />
+          <InfoBox label={t.coatInfoLabel} value={pet.coat} />
         </View>
 
-        <Text style={styles.section}>Agendamentos</Text>
+        <Text style={styles.section}>{t.appointmentsSection}</Text>
 
         <View style={styles.agendaRow}>
           <TouchableOpacity
@@ -171,7 +173,7 @@ export default function PetProfile({ navigation, route }) {
             }
           >
             <Plus size={20} color="#fff" />
-            <Text style={styles.addBtnText}>Agendar</Text>
+            <Text style={styles.addBtnText}>{t.scheduleBtn}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

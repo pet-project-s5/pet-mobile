@@ -51,7 +51,7 @@ export default function Login({ navigation }) {
 
       navigation?.reset({
         index: 0,
-        routes: [{ name: 'Home', params: { userId: data.id, userName: data.name, isAdm } }],
+        routes: [{ name: isAdm ? 'Dashboard' : 'Home', params: { userId: data.id, userName: data.name, isAdm } }],
       });
     } catch (error) {
       if (error.status === 400 || error.status === 401 || error.status === 404) {

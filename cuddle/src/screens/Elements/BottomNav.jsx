@@ -1,5 +1,5 @@
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { PawPrint, Scissors, Clock3, UserRound, BarChart2 } from 'lucide-react-native';
+import { PawPrint, Scissors, Clock3, UserRound, BarChart2, CalendarCheck } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSettings } from '../../contexts/SettingsContext';
 import { getIsAdm, getUserId, getUserName } from '../../services/auth';
@@ -16,72 +16,50 @@ export default function BottomNav({ navigation, activeTab, userId, userName, isA
   const effectiveUserName = userName ?? getUserName() ?? '';
   const effectiveIsAdm    = typeof isAdm === 'boolean' ? isAdm : Boolean(getIsAdm());
 
+  const containerStyle = [
+    styles.container,
+    {
+      backgroundColor: theme.navBg,
+      borderTopColor: theme.border,
+      paddingBottom: insets.bottom,
+      height: NAV_BASE_HEIGHT + insets.bottom,
+    },
+  ];
+
   const go = (screen) => {
-    if (screen === 'Dashboard' && !effectiveIsAdm) return;
     const state = navigation?.getState?.();
     const currentName = state?.routes?.[state?.index]?.name;
     if (currentName === screen) return;
     navigation?.replace(screen, { userId: effectiveUserId, userName: effectiveUserName, isAdm: effectiveIsAdm });
   };
 
-  return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: theme.navBg,
-          borderTopColor: theme.border,
-          paddingBottom: insets.bottom,
-          height: NAV_BASE_HEIGHT + insets.bottom,
-        },
-      ]}
+  const btn = (screen, tab, Icon) => (
+    <TouchableOpacity
+      style={styles.navButton}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      activeOpacity={0.75}
+      onPress={() => go(screen)}
     >
-      <TouchableOpacity
-        style={styles.navButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.75}
-        onPress={() => go('Home')}
-      >
-        <PawPrint size={26} color={activeTab === 'home' ? ACTIVE : INACTIVE} />
-      </TouchableOpacity>
+      <Icon size={26} color={activeTab === tab ? ACTIVE : INACTIVE} />
+    </TouchableOpacity>
+  );
 
-      <TouchableOpacity
-        style={styles.navButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.75}
-        onPress={() => go('Services')}
-      >
-        <Scissors size={26} color={activeTab === 'services' ? ACTIVE : INACTIVE} />
-      </TouchableOpacity>
+  if (effectiveIsAdm) {
+    return (
+      <View style={containerStyle}>
+        {btn('Dashboard',          'dashboard',          BarChart2)}
+        {btn('AdminAppointments',  'adminAppointments',  CalendarCheck)}
+        {btn('UserProfile',        'profile',            UserRound)}
+      </View>
+    );
+  }
 
-      <TouchableOpacity
-        style={styles.navButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.75}
-        onPress={() => go('Schedule')}
-      >
-        <Clock3 size={26} color={activeTab === 'schedule' ? ACTIVE : INACTIVE} />
-      </TouchableOpacity>
-
-      {effectiveIsAdm ? (
-        <TouchableOpacity
-          style={styles.navButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          activeOpacity={0.75}
-          onPress={() => go('Dashboard')}
-        >
-          <BarChart2 size={26} color={activeTab === 'dashboard' ? ACTIVE : INACTIVE} />
-        </TouchableOpacity>
-      ) : null}
-
-      <TouchableOpacity
-        style={styles.navButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.75}
-        onPress={() => go('UserProfile')}
-      >
-        <UserRound size={26} color={activeTab === 'profile' ? ACTIVE : INACTIVE} />
-      </TouchableOpacity>
+  return (
+    <View style={containerStyle}>
+      {btn('Home',        'home',     PawPrint)}
+      {btn('Services',    'services', Scissors)}
+      {btn('Schedule',    'schedule', Clock3)}
+      {btn('UserProfile', 'profile',  UserRound)}
     </View>
   );
 }

@@ -6,10 +6,12 @@ Aplicativo mobile de cuidados com pets desenvolvido em **React Native + Expo**, 
 
 ## ✨ Funcionalidades
 
+### Área do Cliente
+
 | Área | Destaques |
 |---|---|
 | **Autenticação** | Login com JWT, sessão persistente via AsyncStorage, cadastro em 3 etapas |
-| **Pets** | Cadastro com espécie/raça (chips + modal), seleção de porte/porte/pelagem, foto com editor de imagem |
+| **Pets** | Cadastro com espécie/raça (chips + modal), seleção de porte/pelagem, foto com editor de imagem |
 | **Agendamentos** | Calendário visual, seleção de horário em chips, filtro de serviços por espécie do pet, confirmação via modal, cancelamento com confirmação |
 | **Serviços** | Grade de serviços com ícones mapeados por nome (banho 🛁, tosa ✂️, consulta 🩺 etc.) |
 | **Perfil do usuário** | Foto de perfil editável, informações mascaradas (CPF/telefone), tema escuro, seletor de idioma (PT/EN/ES) |
@@ -17,6 +19,34 @@ Aplicativo mobile de cuidados com pets desenvolvido em **React Native + Expo**, 
 | **Editor de imagem** | Modal com grid de terços, zoom, pan, flip horizontal/vertical, confirmação antes de salvar |
 | **Tema escuro** | Aplicado globalmente via `SettingsContext` |
 | **Multi-idioma** | Português, English, Español |
+
+### Área do Admin
+
+| Área | Destaques |
+|---|---|
+| **Dashboard** | KPIs demográficos, gráficos de barras, seletor de região, recomendações de IA via Groq |
+| **Agendamentos (admin)** | Lista paginada de todos os agendamentos com filtros por status, cards com cliente, pet, serviço, profissional, data e preço |
+| **Acesso restrito** | Admin só acessa Dashboard + Agendamentos + Perfil. Abas de cliente (Home, Serviços, Agendamentos) são ocultadas |
+
+---
+
+## 🔐 Controle de Acesso (RBAC)
+
+O campo `isAdm` no banco de dados controla o papel do usuário:
+
+- **Admin** (`isAdm: true`) — entra direto no Dashboard, vê 3 abas: Dashboard, Agendamentos, Perfil
+- **Cliente** (`isAdm: false`) — entra na Home, vê 4 abas: Home, Serviços, Agendamentos, Perfil
+
+O campo é persistido via JWT + AsyncStorage e validado no servidor a cada requisição sensível.
+
+### Usuário admin padrão
+
+| Campo | Valor |
+|---|---|
+| Email | `admin@cuddle.com` |
+| Senha | `admin` |
+
+> Criado automaticamente pelo seed do Prisma.
 
 ---
 
@@ -26,7 +56,7 @@ Aplicativo mobile de cuidados com pets desenvolvido em **React Native + Expo**, 
 pet-mobile/
 ├── cuddle/                  # Front-end React Native (Expo)
 ├── pet-api-ts/              # Back-end TypeScript (Express + Prisma)
-├── docker-compose.yml       # Orquestra front + api + banco
+├── docker-compose.yml       # Orquestra api + banco + analytics
 └── .env                     # Variáveis do banco e JWT
 ```
 
@@ -47,11 +77,7 @@ cd pet-mobile
 
 ### 2. Configure as variáveis de ambiente
 
-Copie e edite o `.env` na raiz:
-
-```bash
-cp .env.example .env
-```
+Edite o `.env` na raiz:
 
 ```env
 # .env (raiz)
@@ -82,10 +108,10 @@ docker compose up --build
 | API | http://localhost:8080 |
 | Banco | localhost:5432 |
 
-### 4. Rebuild (após alterar arquivos `.jsx`/`.js`)
+### 4. Rebuild (após alterar arquivos da API)
 
 ```bash
-docker compose up --build web
+docker compose build api && docker compose up -d api
 ```
 
 ---
@@ -132,28 +158,67 @@ cuddle/
     │   │   ├── Login/              # Login com JWT
     │   │   └── Register/           # Cadastro em 3 etapas com Stepper
     │   ├── Elements/
-    │   │   ├── BottomNav.jsx       # Barra de navegação inferior
+    │   │   ├── BottomNav.jsx       # Barra de navegação inferior (RBAC: 3 abas admin / 4 abas cliente)
     │   │   └── LoadingView.jsx     # Tela de carregamento
     │   ├── Main/
+    │   │   ├── Admin/
+    │   │   │   └── AdminAppointments.jsx  # Todos os agendamentos (somente admin)
+    │   │   ├── Dashboard/
+    │   │   │   └── DashboardScreen.jsx    # KPIs + gráficos + IA (somente admin)
     │   │   ├── Home/               # Grid de pets + centro de notificações
     │   │   ├── Pet/
-    │   │   │   ├── PetEdit.jsx     # Criar/editar pet (chips de espécie, raça, etc.)
+    │   │   │   ├── PetEdit.jsx     # Criar/editar pet
     │   │   │   └── PetProfile.jsx  # Perfil do pet com foto
     │   │   ├── Profile/
-    │   │   │   └── UserProfile.jsx # Perfil do usuário, tema, idioma
+    │   │   │   └── UserProfile.jsx # Perfil, tema, idioma, logout
     │   │   ├── Schedule/
-    │   │   │   ├── Schedule.jsx        # Lista de agendamentos
+    │   │   │   ├── Schedule.jsx        # Lista de agendamentos do cliente
     │   │   │   └── ScheduleCreate.jsx  # Novo agendamento com calendário
     │   │   └── Services/           # Grade de serviços disponíveis
-    │   └── Splash/                 # Splash com verificação de sessão
+    │   └── Splash/                 # Splash com verificação de sessão e redirect por role
     └── services/
         ├── api.js                  # Chamadas HTTP ao backend
-        ├── auth.js                 # Token JWT (memória + AsyncStorage)
+        ├── auth.js                 # Token JWT + isAdm (memória + AsyncStorage)
         ├── groqAI.js               # Dicas de IA via Groq Cloud (com cache)
         ├── petTips.js              # Dicas estáticas (fallback)
-        ├── photoPicker.js          # Seleção de foto (web: input file / native: ImagePicker)
-        └── photoStorage.js         # Persistência de foto (web: base64 / native: FileSystem)
+        ├── photoPicker.js          # Seleção de foto
+        └── photoStorage.js         # Persistência de foto
 ```
+
+---
+
+## 🗂️ Estrutura do back-end
+
+```
+pet-api-ts/
+├── prisma/
+│   ├── schema.prisma               # Modelos: Owner, Pet, Employee, Appointment, ...
+│   └── seed.ts                     # Seed: serviços, funcionários, admin@cuddle.com
+└── src/
+    ├── lib/prisma.ts               # Cliente Prisma singleton
+    ├── middleware/auth.ts          # Middleware JWT (authenticate)
+    └── routes/
+        ├── auth.ts                 # POST /api/auth/login, /register
+        ├── owners.ts               # GET /api/owners/me
+        ├── pets.ts                 # CRUD /api/pets
+        ├── appointments.ts         # CRUD /api/appointments + GET / (admin)
+        ├── petOfferings.ts         # GET /api/pet-offerings
+        └── analytics.ts            # GET /api/analytics/* (dashboard admin)
+```
+
+### Principais endpoints
+
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| POST | `/api/auth/login` | Público | Retorna JWT + dados do usuário |
+| POST | `/api/auth/register` | Público | Cria novo cliente |
+| GET | `/api/owners/me` | Autenticado | Dados do usuário logado |
+| GET | `/api/appointments` | Admin | Lista todos os agendamentos paginados |
+| GET | `/api/appointments/owner/:id` | Autenticado | Agendamentos do cliente |
+| POST | `/api/appointments` | Autenticado | Cria agendamento |
+| POST | `/api/appointments/available-times/:petId` | Autenticado | Horários disponíveis |
+| DELETE | `/api/appointments/:id` | Autenticado | Cancela agendamento |
+| GET | `/api/analytics/dashboard` | Admin | KPIs para o Dashboard |
 
 ---
 
@@ -183,6 +248,7 @@ cuddle/
 | Express | ^4.x |
 | Prisma ORM | ^6.x |
 | PostgreSQL | 15 |
+| bcryptjs | ^2.x |
 | JWT (jsonwebtoken) | ^9.x |
 | Zod | ^3.x |
 
@@ -198,10 +264,10 @@ cuddle/
 
 O sino no canto superior direito da Home abre um **centro de notificações** com:
 
-- **Dicas de IA** ✨ — geradas pelo Groq com base na espécie, raça e idade do pet. A cada 30 minutos uma nova categoria é sorteada (higiene, alimentação, comportamento, enriquecimento ambiental, etc.). Todas incluem disclaimer: *"Consulte sempre um veterinário para orientações médicas."*
+- **Dicas de IA** ✨ — geradas pelo Groq com base na espécie, raça e idade do pet. A cada 30 minutos uma nova categoria é sorteada. Todas incluem disclaimer: *"Consulte sempre um veterinário para orientações médicas."*
 - **Lembretes de agendamento** 📅 — disparados quando um agendamento está a menos de 24h, com nome do pet, serviço e horário.
 
-As notificações são **persistidas no AsyncStorage** e acumulam até 50 itens. Podem ser limpas pelo botão "Limpar".
+As notificações são **persistidas no AsyncStorage** e acumulam até 50 itens.
 
 ---
 
@@ -229,4 +295,10 @@ cd cuddle
 Remove-Item -Recurse -Force node_modules   # PowerShell
 npm install
 npx expo start --clear
+```
+
+**Senha do admin não funciona após rebuild**  
+O seed roda automaticamente no build. Se precisar recriar manualmente:
+```bash
+docker exec -it cuddle-api npx prisma db seed
 ```
