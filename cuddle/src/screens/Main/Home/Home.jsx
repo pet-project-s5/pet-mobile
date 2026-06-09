@@ -14,6 +14,7 @@ import { pickAITip } from '../../../services/groqAI';
 import { pickRandomTip } from '../../../services/petTips';
 import { getUserPhoto, getPetPhoto } from '../../../services/photoStorage';
 import { useSettings, useT } from '../../../contexts/SettingsContext';
+import { resolveSessionParams } from '../../../utils/session';
 
 const TIP_INTERVAL_MS = 30 * 60 * 1000;
 const MAX_NOTIFS = 50;
@@ -118,8 +119,8 @@ export default function Home({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { theme } = useSettings();
   const t = useT();
-  const userId = route?.params?.userId;
-  const userName = route?.params?.userName || 'Tutor';
+  const { userId, userName } = resolveSessionParams(route?.params);
+  const displayName = userName || 'Tutor';
 
   const [pets, setPets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,7 +144,7 @@ export default function Home({ navigation, route }) {
     } catch { /* ignore */ }
   }
 
-  async function loadQueue() {
+  const loadQueue = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -152,7 +153,7 @@ export default function Home({ navigation, route }) {
         // Don't restore unread count — user already saw them before closing the app
       }
     } catch { /* ignore */ }
-  }
+  }, [STORAGE_KEY]);
 
   // ── Push a new notification ───────────────────────────────────────────────
   const pushNotif = useCallback((notif) => {
@@ -187,6 +188,28 @@ export default function Home({ navigation, route }) {
     }
   }, [pushNotif, userId]);
 
+  const loadPets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getPetsByUser(userId);
+      setPets(data);
+      petsRef.current = data;
+
+      const photos = {};
+      await Promise.all(data.map(async p => {
+        const uri = await getPetPhoto(p.id);
+        if (uri) photos[p.id] = uri;
+      }));
+      setPetPhotos(photos);
+
+      if (data.length > 0) fetchTip(data);
+    } catch (err) {
+      console.log('Erro ao carregar pets:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTip, userId]);
+
   // ── Appointment reminders ─────────────────────────────────────────────────
   const checkAppointments = useCallback(async () => {
     if (!userId) return;
@@ -211,37 +234,23 @@ export default function Home({ navigation, route }) {
 
   // ── Focus: refresh photo + check appointments ─────────────────────────────
   useFocusEffect(useCallback(() => {
-    getUserPhoto(userId).then(uri => setUserPhotoUri(uri));
-    checkAppointments();
-  }, [userId, checkAppointments]));
+    let active = true;
 
-  // ── Load pets + stored notifications on mount ─────────────────────────────
-  useEffect(() => {
     loadQueue();
-
-    async function loadPets() {
-      try {
-        setLoading(true);
-        const data = await getPetsByUser(userId);
-        setPets(data);
-        petsRef.current = data;
-
-        const photos = {};
-        await Promise.all(data.map(async p => {
-          const uri = await getPetPhoto(p.id);
-          if (uri) photos[p.id] = uri;
-        }));
-        setPetPhotos(photos);
-
-        if (data.length > 0) fetchTip(data);
-      } catch (err) {
-        console.log('Erro ao carregar pets:', err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadPets();
-  }, [userId]);
+    checkAppointments();
+    getUserPhoto(userId)
+      .then(uri => {
+        if (active) setUserPhotoUri(uri);
+      })
+      .catch(() => {
+        if (active) setUserPhotoUri(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [checkAppointments, loadPets, loadQueue, userId]));
 
   // ── Periodic AI tip ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -281,7 +290,7 @@ export default function Home({ navigation, route }) {
             }
           </TouchableOpacity>
 
-          <Text style={styles.greeting}>{t.hello}, {userName}!</Text>
+          <Text style={styles.greeting}>{t.hello}, {displayName}!</Text>
 
           <TouchableOpacity style={styles.bellBox} onPress={handleBellPress}>
             <Bell size={22} color="#2794AD" />

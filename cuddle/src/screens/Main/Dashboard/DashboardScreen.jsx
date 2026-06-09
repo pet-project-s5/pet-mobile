@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,735 +7,987 @@ import {
   Dimensions,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFonts, Kanit_400Regular, Kanit_500Medium, Kanit_600SemiBold, Kanit_700Bold } from '@expo-google-fonts/kanit';
-import { SettingsContext } from '../../../contexts/SettingsContext';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold } from '@expo-google-fonts/dm-sans';
+import { DMSerifDisplay_400Regular } from '@expo-google-fonts/dm-serif-display';
+import { useSettings } from '../../../contexts/SettingsContext';
+import { getAnalyticsDistricts, getAnalyticsDashboard } from '../../../services/api';
+import BottomNav from '../../Elements/BottomNav';
+import { getIsAdm, getUserId, getUserName } from '../../../services/auth';
+import { getDashboardRecommendations } from '../../../services/groqAnalytics';
 
 const { width } = Dimensions.get('window');
 
-// ─── Data ──────────────────────────────────────────────────────────────────────
-
-const KPIS = [
-  { label: 'Mulheres',     value: '72.662', pct: '53,2% do total', delta: '+0,3pp vs média', positive: true },
-  { label: 'Homens',       value: '63.009', pct: '46,1% do total', delta: '-0,7pp vs média', positive: false },
-  { label: 'Idosos (60+)', value: '29.495', pct: '21,6% do total', delta: '+2,9pp vs média', positive: true },
-  { label: 'Crianças 0-17',value: '28.904', pct: '21,1% do total', delta: '-2,4pp vs média', positive: false },
+const REC_THEMES = [
+  { accent: '#4a9ab0', tagBg: '#d4f0e4', tagColor: '#1a6a4a' },
+  { accent: '#f5c842', tagBg: '#fff0cc', tagColor: '#7b4a00' },
+  { accent: '#9b59b6', tagBg: '#f0e4f8', tagColor: '#4a1a6a' },
 ];
 
-const ADULTOS = { label: 'Adultos 18-59', value: '78.299', pct: '57,3% do total', delta: '-0,5pp vs média', positive: false };
-
-const RANKING = [
-  { pos: '1.',  name: 'Alto de Pinheiros', val: '32,8%', highlight: false, dots: false },
-  { pos: '2.',  name: 'Jardim Paulista',   val: '30,1%', highlight: false, dots: false },
-  { dots: true },
-  { pos: '38.', name: 'Aricanduva',        val: '22,1%', highlight: false, dots: false },
-  { pos: '39.', name: 'Casa Verde',        val: '22,0%', highlight: false, dots: false },
-  { pos: '40.', name: 'Freguesia do Ó',   val: '21,6%', highlight: true,  dots: false },
-  { pos: '41.', name: 'República',         val: '21,6%', highlight: false, dots: false },
-  { pos: '42.', name: 'Ponte Rasa',        val: '21,0%', highlight: false, dots: false },
-  { dots: true },
-  { pos: '96.', name: 'Anhanguera',        val: '11,7%', highlight: false, dots: false },
-];
-
-const ANOS = ['2008', '2010', '2012', '2014', '2016', '2018', '2020', '2022'];
-
-const SERIES = [
-  {
-    title: 'Mulheres (% da população)',
-    color: '#4db8c0',
-    data:  [53.1, 53.1, 53.2, 53.2, 53.3, 53.3, 53.4, 53.5],
-    media: [52.9, 52.9, 53.0, 53.0, 53.0, 53.1, 53.1, 53.1],
-    yMin: 52.6, yMax: 53.8,
-  },
-  {
-    title: 'Idosos 60+ (% da população)',
-    color: '#e8837a',
-    data:  [14.1, 13.4, 15.0, 16.0, 17.0, 18.2, 19.4, 20.5],
-    media: [12.0, 12.4, 12.8, 13.2, 13.8, 14.4, 15.0, 15.6],
-    yMin: 10, yMax: 22,
-  },
-  {
-    title: 'Crianças 0-17 (% da população)',
-    color: '#4db89e',
-    data:  [24.0, 22.4, 22.0, 21.6, 21.3, 20.9, 20.7, 21.0],
-    media: [25.5, 25.0, 24.4, 23.8, 23.4, 23.0, 22.7, 22.5],
-    yMin: 19, yMax: 27,
-  },
-];
-
-// ─── Mini sparkline (pure RN, no external chart lib) ───────────────────────────
-
-const CHART_W = width - 64;
-const CHART_H = 100;
-const PAD_L = 36;
-const PAD_B = 24;
-const PAD_T = 8;
-const PAD_R = 8;
-
-function normalize(val, min, max) {
-  return (val - min) / (max - min);
+function formatIntBR(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return '--';
+  const s = String(Math.round(Number(n)));
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-function toPoints(data, yMin, yMax) {
-  const innerW = CHART_W - PAD_L - PAD_R;
-  const innerH = CHART_H - PAD_T - PAD_B;
-  return data.map((v, i) => ({
-    x: PAD_L + (i / (data.length - 1)) * innerW,
-    y: PAD_T + (1 - normalize(v, yMin, yMax)) * innerH,
-    v,
-  }));
+function formatPctBR(p, decimals = 1) {
+  if (p === null || p === undefined || Number.isNaN(Number(p))) return '--';
+  return `${Number(p).toFixed(decimals).replace('.', ',')}%`;
 }
 
-function Polyline({ points, color, dashed = false }) {
-  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  // Simulate dashed with short segments every other
-  if (dashed) {
-    const segs = [];
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i], p1 = points[i + 1];
-      const mx = (p0.x + p1.x) / 2;
-      const my = (p0.y + p1.y) / 2;
-      segs.push({ x1: p0.x, y1: p0.y, x2: mx, y2: my });
-    }
-    return segs.map((s, i) => (
-      <View
-        key={i}
-        style={{
-          position: 'absolute',
-          left: s.x1,
-          top: s.y1,
-          width: Math.sqrt((s.x2 - s.x1) ** 2 + (s.y2 - s.y1) ** 2),
-          height: 1.5,
-          backgroundColor: color,
-          opacity: 0.6,
-          transform: [{ rotate: `${Math.atan2(s.y2 - s.y1, s.x2 - s.x1) * (180 / Math.PI)}deg` }],
-          transformOrigin: '0 50%',
-        }}
-      />
-    ));
+function formatSignedPp(delta, decimals = 1) {
+  if (delta === null || delta === undefined || Number.isNaN(Number(delta))) return '--';
+  const v = Number(delta);
+  const sign = v >= 0 ? '+' : '-';
+  const abs = Math.abs(v);
+  const absStr = abs % 1 === 0 ? abs.toFixed(0) : abs.toFixed(decimals);
+  return `${sign}${absStr.replace('.', ',')}pp`;
+}
+
+function formatAbsPp(delta, decimals = 1) {
+  if (delta === null || delta === undefined || Number.isNaN(Number(delta))) return '--';
+  const abs = Math.abs(Number(delta));
+  const absStr = abs % 1 === 0 ? abs.toFixed(0) : abs.toFixed(decimals);
+  return `${absStr.replace('.', ',')}pp`;
+}
+
+function buildInsight({ elderlyDelta, childrenPct, adultsPct }) {
+  if (!Number.isFinite(elderlyDelta)) return 'Perfil demográfico em análise.';
+  const abs = formatAbsPp(elderlyDelta);
+  if (elderlyDelta <= -3) {
+    const profile = Number.isFinite(childrenPct) && childrenPct >= 24
+      ? 'Perfil: bairro jovem e ativo'
+      : 'Perfil: bairro em crescimento';
+    return `Idosos ${abs} abaixo da média SP · ${profile}`;
   }
-  // Solid line segments
-  return points.slice(0, -1).map((p0, i) => {
-    const p1 = points[i + 1];
-    const len = Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2);
-    const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x) * (180 / Math.PI);
-    return (
-      <View
-        key={i}
-        style={{
-          position: 'absolute',
-          left: p0.x,
-          top: p0.y - 1,
-          width: len,
-          height: 2,
-          backgroundColor: color,
-          transform: [{ rotate: `${angle}deg` }],
-          transformOrigin: '0 50%',
-        }}
-      />
-    );
-  });
+  if (elderlyDelta >= 3) {
+    return `Idosos ${abs} acima da média SP · Perfil: bairro mais maduro`;
+  }
+  return 'Idosos próximos da média SP · Perfil equilibrado';
 }
 
-function MiniChart({ series }) {
-  const { color, data, media, yMin, yMax } = series;
-  const pts = toPoints(data, yMin, yMax);
-  const mpts = toPoints(media, yMin, yMax);
-  const innerH = CHART_H - PAD_T - PAD_B;
-  const innerW = CHART_W - PAD_L - PAD_R;
-  const yTicks = [yMin, (yMin + yMax) / 2, yMax];
-
-  return (
-    <View style={{ width: CHART_W, height: CHART_H + 4, position: 'relative' }}>
-      {/* Y axis ticks */}
-      {yTicks.map((t) => {
-        const y = PAD_T + (1 - normalize(t, yMin, yMax)) * innerH;
-        return (
-          <View key={t} style={{ position: 'absolute', left: 0, top: y - 6, width: PAD_L - 4, alignItems: 'flex-end' }}>
-            <Text style={styles.chartTick}>{t}%</Text>
-          </View>
-        );
-      })}
-      {/* Grid lines */}
-      {yTicks.map((t) => {
-        const y = PAD_T + (1 - normalize(t, yMin, yMax)) * innerH;
-        return (
-          <View key={t} style={{ position: 'absolute', left: PAD_L, top: y, width: innerW, height: 0.5, backgroundColor: 'rgba(0,0,0,0.06)' }} />
-        );
-      })}
-      {/* Media line (dashed) */}
-      <Polyline points={mpts} color="#d4a017" dashed />
-      {/* Main line */}
-      <Polyline points={pts} color={color} />
-      {/* Data points */}
-      {pts.map((p, i) => (
-        <View key={i} style={{ position: 'absolute', left: p.x - 3, top: p.y - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
-      ))}
-      {/* X axis labels */}
-      {ANOS.map((a, i) => {
-        const x = PAD_L + (i / (ANOS.length - 1)) * innerW;
-        return (
-          <View key={a} style={{ position: 'absolute', left: x - 16, top: CHART_H - PAD_B + 6, width: 32 }}>
-            <Text style={[styles.chartTick, { textAlign: 'center' }]}>{a}</Text>
-          </View>
-        );
-      })}
-    </View>
-  );
+function computeActivityScore({ adultsPct, childrenPct, elderlyPct }) {
+  let score = 3;
+  if (Number.isFinite(adultsPct) && adultsPct >= 58) score += 1;
+  if (Number.isFinite(childrenPct) && childrenPct >= 24) score += 1;
+  if (Number.isFinite(elderlyPct) && elderlyPct >= 18) score -= 1;
+  if (Number.isFinite(elderlyPct) && elderlyPct <= 12) score += 1;
+  return Math.min(5, Math.max(1, score));
 }
 
-// ─── Donut chart (pure RN View-based arc simulation) ──────────────────────────
-// We use a simple visual representation with two coloured arcs as semi-circles
+function starRating(score) {
+  const full = Math.min(5, Math.max(1, score));
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
 
-function DonutChart() {
-  // Mulheres = 53.2%, Homens = 46.1% (remainder ~0.7% não declarado)
-  // Visual: a ring using two background halves
-  const SIZE = 120;
-  const STROKE = 18;
+function RecCard({ theme, accent, tagBg, tagColor, tag, emoji, title, body, leftKpi, rightKpi }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', width: SIZE, height: SIZE }}>
-      {/* Outer ring background (homens) */}
-      <View style={{
-        position: 'absolute',
-        width: SIZE, height: SIZE,
-        borderRadius: SIZE / 2,
-        backgroundColor: '#1a5c6e',
-      }} />
-      {/* Mulheres arc overlay – covers ~53% of the circle */}
-      {/* We fake it: left half is full teal, right half clips to ~6° extra */}
-      <View style={{
-        position: 'absolute',
-        width: SIZE, height: SIZE,
-        borderRadius: SIZE / 2,
-        overflow: 'hidden',
-      }}>
-        {/* Left half – full mulheres */}
-        <View style={{ position: 'absolute', left: 0, top: 0, width: SIZE / 2, height: SIZE, backgroundColor: '#4db8c0' }} />
-        {/* Right partial – ~3% extra (53-50) out of 50 = 6% of right half */}
-        <View style={{ position: 'absolute', left: SIZE / 2, top: 0, width: (SIZE / 2) * 0.12, height: SIZE, backgroundColor: '#4db8c0' }} />
+    <View style={[styles.recCard, theme.card]}>
+      <View style={[styles.recAccent, { backgroundColor: accent }]} />
+      <View style={styles.recCardTop}>
+        <View style={[styles.recTag, { backgroundColor: tagBg }]}>
+          <Text style={[styles.recTagText, { color: tagColor }]}>{tag}</Text>
+        </View>
+        <View style={styles.recIconRow}>
+          <View style={styles.recIconCircle}>
+            <Text style={styles.recEmoji}>{emoji}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.recCardTitle, theme.textPrimary]}>{title}</Text>
+            <Text style={[styles.recCardBody, theme.textMuted]}>{body}</Text>
+          </View>
+        </View>
       </View>
-      {/* Inner white hole */}
-      <View style={{
-        position: 'absolute',
-        width: SIZE - STROKE * 2,
-        height: SIZE - STROKE * 2,
-        borderRadius: (SIZE - STROKE * 2) / 2,
-        backgroundColor: '#f4f9fa',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <Text style={styles.donutPct}>53,2%</Text>
-        <Text style={styles.donutLbl}>mulheres</Text>
+      <View style={styles.recCardBottom}>
+        <View style={styles.recKpiMini}>
+          <Text style={[styles.recKpiMiniLabel, theme.textMuted]}>{leftKpi.label}</Text>
+          <Text style={[styles.recKpiMiniVal, theme.textPrimary]}>{leftKpi.value}</Text>
+        </View>
+        <View style={styles.recKpiMini}>
+          <Text style={[styles.recKpiMiniLabel, theme.textMuted]}>{rightKpi.label}</Text>
+          <Text style={[styles.recKpiMiniVal, theme.textPrimary]}>{rightKpi.value}</Text>
+        </View>
       </View>
     </View>
   );
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+export default function DashboardScreen({ navigation, route }) {
+  const { darkMode } = useSettings();
+  const insets = useSafeAreaInsets();
 
-export default function DashboardScreen() {
-  const { darkMode } = useContext(SettingsContext);
-  const [activeTab, setActiveTab] = useState(0);
+  const userId = route?.params?.userId ?? route?.params?.ownerId ?? getUserId();
+  const userName = route?.params?.userName ?? getUserName() ?? '';
+  const isAdm = typeof route?.params?.isAdm === 'boolean' ? route.params.isAdm : Boolean(getIsAdm());
+
+  const [districts, setDistricts] = useState([]);
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [districtPickerOpen, setDistrictPickerOpen] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+
+  const [dashboard, setDashboard] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [aiRecs, setAiRecs] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const [fontsLoaded] = useFonts({
-    Kanit_400Regular,
-    Kanit_500Medium,
-    Kanit_600SemiBold,
-    Kanit_700Bold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSerifDisplay_400Regular,
   });
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (isAdm) return;
+    if (userId) {
+      navigation?.replace('Home', { userId, userName, isAdm: false });
+    } else {
+      navigation?.replace('Login');
+    }
+  }, [isAdm, navigation, userId, userName]);
+
+  useEffect(() => {
+    if (!isAdm) return;
+    let mounted = true;
+    (async () => {
+      setLoadingDistricts(true);
+      try {
+        const list = await getAnalyticsDistricts();
+        if (!mounted) return;
+        setDistricts(list);
+        if (list.length) setSelectedDistrict((prev) => prev ?? list[0]);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e?.message || 'Erro ao carregar distritos');
+      } finally {
+        if (mounted) setLoadingDistricts(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isAdm]);
+
+  useEffect(() => {
+    if (!dashboard?.district?.region) {
+      setAiRecs(null);
+      return;
+    }
+    let mounted = true;
+    setAiLoading(true);
+    setAiRecs(null);
+
+    const kpis = dashboard?.kpis;
+    const input = {
+      region: dashboard.district.region,
+      districtName: dashboard.district.name,
+      total: kpis?.total?.value,
+      womenPct: kpis?.women?.pct,
+      menPct: kpis?.men?.pct,
+      childrenPct: kpis?.children?.pct,
+      adultsPct: kpis?.adults?.pct,
+      elderlyPct: kpis?.elderly?.pct,
+      elderlyDelta: kpis?.elderly?.deltaPp,
+      childrenDelta: kpis?.children?.deltaPp,
+      adultsDelta: kpis?.adults?.deltaPp,
+    };
+
+    getDashboardRecommendations(input)
+      .then((data) => {
+        if (mounted) setAiRecs(data);
+      })
+      .catch(() => {
+        if (mounted) setAiRecs(null);
+      })
+      .finally(() => {
+        if (mounted) setAiLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [dashboard?.district?.region]);
 
   const theme = darkMode ? darkStyles : {};
 
+  const displayedDistrictName = dashboard?.district?.name ?? selectedDistrict?.name ?? 'Selecione um distrito';
+  const kpis = dashboard?.kpis;
+
+  const kpiCards = useMemo(() => {
+    const build = (label, kpi) => {
+      const delta = Number(kpi?.deltaPp);
+      return {
+        label,
+        value: formatIntBR(kpi?.value),
+        delta: Number.isFinite(delta) ? delta : null,
+      };
+    };
+
+    return [
+      build('Mulheres', kpis?.women),
+      build('Homens', kpis?.men),
+      build('Idosos 60+', kpis?.elderly),
+      build('Crianças 0-17', kpis?.children),
+    ];
+  }, [kpis]);
+
+  const bars = useMemo(() => {
+    return [
+      { label: 'Crianças 0-17', pct: kpis?.children?.pct, color: '#f5c842' },
+      { label: 'Adultos 18-59', pct: kpis?.adults?.pct, color: '#4a9ab0' },
+      { label: 'Idosos 60+', pct: kpis?.elderly?.pct, color: '#e07070' },
+    ];
+  }, [kpis]);
+
+  const insight = useMemo(() => {
+    return buildInsight({
+      elderlyDelta: kpis?.elderly?.deltaPp,
+      childrenPct: kpis?.children?.pct,
+      adultsPct: kpis?.adults?.pct,
+    });
+  }, [kpis]);
+
+  const recKpis = useMemo(() => {
+    const adultsPct = kpis?.adults?.pct;
+    const childrenPct = kpis?.children?.pct;
+    const elderlyPct = kpis?.elderly?.pct;
+
+    const activity = starRating(computeActivityScore({ adultsPct, childrenPct, elderlyPct }));
+
+    const loyalty = Number.isFinite(childrenPct)
+      ? (childrenPct >= 25 ? 'Alto' : childrenPct >= 18 ? 'Médio' : 'Baixo')
+      : 'Médio';
+
+    const ticket = Number.isFinite(adultsPct)
+      ? (adultsPct >= 58 ? '↑' : adultsPct >= 50 ? '→' : '↓')
+      : '→';
+
+    return [
+      [
+        { label: 'Adultos 18-59', value: formatPctBR(adultsPct) },
+        { label: 'Crianças 0-17', value: formatPctBR(childrenPct) },
+      ],
+      [
+        { label: 'Idosos vs média', value: formatSignedPp(kpis?.elderly?.deltaPp, 0) },
+        { label: 'Perfil ativo', value: activity },
+      ],
+      [
+        { label: 'Fidelização', value: loyalty },
+        { label: 'Ticket médio', value: ticket },
+      ],
+    ];
+  }, [kpis]);
+
+  async function handleGenerate() {
+    if (!selectedDistrict?.region || isGenerating) return;
+    setError(null);
+    setIsGenerating(true);
+    try {
+      const data = await getAnalyticsDashboard(selectedDistrict.region);
+      setDashboard(data);
+      if (data?.district?.region && data?.district?.name) {
+        setSelectedDistrict({ region: data.district.region, name: data.district.name });
+      }
+      setDistrictPickerOpen(false);
+    } catch (e) {
+      setError(e?.message || 'Erro ao gerar dashboard');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  if (!fontsLoaded) return null;
+  if (!isAdm) return null;
+
+  const locationLabel = displayedDistrictName !== 'Selecione um distrito'
+    ? `${displayedDistrictName} · São Paulo`
+    : 'São Paulo';
+
+  const navHeight = 74 + insets.bottom;
+
   return (
     <SafeAreaView style={[styles.safe, theme.safe]} edges={['top']}>
-      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor="#1a5c6e" />
+      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor="#1a4a5c" />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Freguesia do Ó</Text>
-        <Text style={styles.headerSub}>Análise demográfica para o mercado pet</Text>
-        <View style={styles.headerBorder} />
+        <Text style={[styles.headerBrand, theme.headerBrand]}>Cuddle</Text>
+        <Text style={[styles.headerLabel, theme.headerLabel]}>Relatório demográfico</Text>
+        <Text style={[styles.headerTitle, theme.headerTitle]} numberOfLines={1}>{displayedDistrictName}</Text>
+        <Text style={[styles.headerSub, theme.headerSub]}>Análise para o mercado pet</Text>
+        <View style={styles.headerAccent} />
       </View>
 
       <ScrollView
         style={[styles.scroll, theme.scroll]}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: navHeight + 8 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Blob decorations */}
-        <View style={[styles.blob, { width: 160, height: 160, top: -30, right: -40, opacity: 0.4 }]} />
-        <View style={[styles.blob, { width: 100, height: 100, top: 320, left: -30, opacity: 0.3 }]} />
-        <View style={[styles.blob, { width: 80, height: 80, top: 700, right: 10, opacity: 0.3 }]} />
-
-        {/* ── Seção: Visão geral ── */}
-        <Text style={[styles.sectionLabel, theme.sectionLabel]}>Visão geral da população</Text>
-
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLbl}>POPULAÇÃO TOTAL</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-            <Text style={styles.totalNum}>136.698</Text>
-            <Text style={styles.totalSub}>habitantes</Text>
-          </View>
-        </View>
-
-        {/* KPI grid 2x2 */}
-        <View style={styles.kpiGrid}>
-          {KPIS.map((k) => (
-            <View key={k.label} style={[styles.kpiCard, k.positive ? styles.kpiPos : styles.kpiNeg, theme.kpiCard]}>
-              <View style={[styles.kpiLblWrap, { borderLeftColor: k.positive ? '#4db89e' : '#e8837a' }]}>
-                <Text style={[styles.kpiLbl, { color: k.positive ? '#4db89e' : '#e8837a' }]}>{k.label.toUpperCase()}</Text>
-              </View>
-              <Text style={[styles.kpiNum, theme.kpiNum]}>{k.value}</Text>
-              <Text style={[styles.kpiPct, theme.kpiPct]}>{k.pct}</Text>
-              <Text style={[styles.kpiDelta, { color: k.positive ? '#0a8a68' : '#c9413a' }]}>{k.delta}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Adultos – full width */}
-        <View style={[styles.kpiCardFull, styles.kpiNeg, theme.kpiCard]}>
-          <View style={[styles.kpiLblWrap, { borderLeftColor: '#e8837a' }]}>
-            <Text style={[styles.kpiLbl, { color: '#e8837a' }]}>{ADULTOS.label.toUpperCase()}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <Text style={[styles.kpiNum, theme.kpiNum]}>{ADULTOS.value}</Text>
-            <View>
-              <Text style={[styles.kpiPct, theme.kpiPct]}>{ADULTOS.pct}</Text>
-              <Text style={[styles.kpiDelta, { color: '#c9413a' }]}>{ADULTOS.delta}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Seção: Gênero e ranking ── */}
-        <Text style={[styles.sectionTitle, theme.sectionLabel]}>Gênero e Ranking de Idosos</Text>
-
-        {/* Donut + ranking lado a lado */}
-        <View style={[styles.card, theme.card, { flexDirection: 'row', gap: 12, alignItems: 'flex-start' }]}>
-          <View style={{ alignItems: 'center', gap: 10 }}>
-            <Text style={[styles.chartTitle, theme.chartTitle]}>Distribuição por Gênero</Text>
-            <DonutChart />
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#4db8c0' }} />
-                <Text style={[styles.legendTxt, theme.legendTxt]}>Mulheres</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#1a5c6e' }} />
-                <Text style={[styles.legendTxt, theme.legendTxt]}>Homens</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Ranking */}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rankingTitle, theme.rankingTitle]}>Ranking – Idosos (60+)</Text>
-            {RANKING.map((r, i) =>
-              r.dots ? (
-                <Text key={i} style={styles.dots}>···</Text>
-              ) : (
-                <View key={i} style={[styles.rankRow, r.highlight && styles.rankRowHL]}>
-                  <Text style={[styles.rankPos, r.highlight && styles.rankTxtHL]}>{r.pos}</Text>
-                  <Text style={[styles.rankName, r.highlight && styles.rankTxtHL]} numberOfLines={1}>{r.name}</Text>
-                  <Text style={[styles.rankVal, r.highlight && styles.rankTxtHL]}>{r.val}</Text>
-                </View>
-              )
-            )}
-          </View>
-        </View>
-
-        {/* ── Seção: Evolução ── */}
-        <Text style={[styles.sectionTitle, theme.sectionLabel]}>Evolução por Grupo (2008–2023)</Text>
-        <Text style={[styles.sectionSubtitle, theme.kpiPct]}>Comparativo com a média dos distritos de SP</Text>
-
-        {/* Tab selector */}
-        <View style={[styles.tabBar, theme.card]}>
-          {SERIES.map((s, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[styles.tab, activeTab === i && { borderBottomWidth: 2, borderBottomColor: s.color }]}
-              onPress={() => setActiveTab(i)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabTxt, activeTab === i && { color: s.color, fontFamily: 'Kanit_600SemiBold' }]}>
-                {i === 0 ? 'Mulheres' : i === 1 ? 'Idosos' : 'Crianças'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={[styles.card, theme.card, { paddingTop: 12 }]}>
-          <Text style={[styles.chartTitle, theme.chartTitle]}>{SERIES[activeTab].title}</Text>
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: SERIES[activeTab].color }} />
-              <Text style={[styles.legendTxt, theme.legendTxt]}>Freguesia do Ó</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 10, height: 3, backgroundColor: '#d4a017', opacity: 0.7 }} />
-              <Text style={[styles.legendTxt, theme.legendTxt]}>Média distritos</Text>
-            </View>
-          </View>
-          <MiniChart series={SERIES[activeTab]} />
-        </View>
-
-        {/* ── Recomendações ── */}
-        <Text style={[styles.sectionTitle, theme.sectionLabel]}>Recomendações</Text>
-
-        <View style={[styles.recCard, theme.recCard]}>
-          <Text style={styles.recIcon}>⚖️</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.recTitle, theme.kpiNum]}>Perfil equilibrado</Text>
-            <Text style={[styles.recBody, theme.kpiPct]}>
-              Seu bairro tem um perfil demográfico diversificado e próximo da média de SP. Uma estratégia variada é o melhor caminho — atenda bem todos os perfis de tutores.
+        <View style={[styles.controlsCard, theme.card]}>
+          <TouchableOpacity
+            style={styles.districtSelect}
+            onPress={() => setDistrictPickerOpen((v) => !v)}
+            disabled={loadingDistricts || isGenerating}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.districtLabel, theme.textMuted]}>Distrito</Text>
+            <Text style={[styles.districtValue, theme.textPrimary]} numberOfLines={1}>
+              {selectedDistrict?.name ?? (loadingDistricts ? 'Carregando...' : 'Selecione um distrito')}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.generateBtn, (!selectedDistrict || isGenerating) && styles.generateBtnDisabled]}
+            onPress={handleGenerate}
+            disabled={!selectedDistrict || isGenerating}
+            activeOpacity={0.7}
+          >
+            {isGenerating ? (
+              <ActivityIndicator size="small" color="#1a4a5c" />
+            ) : (
+              <Text style={styles.generateBtnTxt}>Gerar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {districtPickerOpen && (
+          <View style={[styles.districtListCard, theme.card]}>
+            <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+              {districts.map((d) => {
+                const selected = selectedDistrict?.region === d.region;
+                return (
+                  <TouchableOpacity
+                    key={d.region}
+                    style={[styles.districtItem, selected && styles.districtItemSelected]}
+                    onPress={() => {
+                      setSelectedDistrict(d);
+                      setDistrictPickerOpen(false);
+                    }}
+                    disabled={isGenerating}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.districtItemTxt,
+                        theme.textPrimary,
+                        selected && styles.districtItemTxtSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {d.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {!districts.length && !loadingDistricts && (
+                <Text style={[styles.emptyDistricts, theme.textMuted]}>Nenhum distrito encontrado.</Text>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
+        {error ? <Text style={[styles.errorText, theme.errorText]}>{error}</Text> : null}
+
+        <View style={styles.section}>
+          <Text style={[styles.secLabel, theme.secLabel]}>Visão geral</Text>
+          <View style={styles.popTotal}>
+            <View>
+              <View style={styles.popRow}>
+                <Text style={styles.popNum}>{formatIntBR(kpis?.total?.value)}</Text>
+                <Text style={styles.popUnit}>habitantes</Text>
+              </View>
+              <Text style={styles.popSub}>{locationLabel}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Footer */}
-        <Text style={[styles.footer, theme.footer]}>Cuddle  |  Dados: Observa Sampa</Text>
+        <View style={styles.section}>
+          <Text style={[styles.secLabel, theme.secLabel]}>Perfil demográfico</Text>
+          <View style={styles.kpiGrid}>
+            {kpiCards.map((k) => (
+              <View key={k.label} style={[styles.kpiCard, theme.kpiCard]}>
+                <Text style={[styles.kpiLabel, theme.textMuted]}>{k.label}</Text>
+                <Text style={[styles.kpiVal, theme.textPrimary]}>
+                  {k.value}
+                  <Text style={styles.kpiUnit}> hab</Text>
+                </Text>
+                {k.delta === null ? (
+                  <Text style={[styles.badgePlaceholder, theme.textMuted]}>--</Text>
+                ) : (
+                  <View style={[styles.badge, k.delta >= 0 ? styles.badgeUp : styles.badgeDown]}>
+                    <Text style={[styles.badgeText, k.delta >= 0 ? styles.badgeUpText : styles.badgeDownText]}>
+                      {`${formatSignedPp(k.delta)} vs média`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.secLabel, theme.secLabel]}>Distribuição por faixa etária</Text>
+          <View style={[styles.barsCard, theme.card]}>
+            {bars.map((bar) => {
+              const pct = Number.isFinite(bar.pct) ? bar.pct : 0;
+              const pctLabel = Number.isFinite(bar.pct) ? formatPctBR(bar.pct) : '--';
+              return (
+                <View key={bar.label} style={styles.barRow}>
+                  <Text style={[styles.barLabel, theme.textPrimary]}>{bar.label}</Text>
+                  <View style={[styles.barTrack, theme.barTrack]}>
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: bar.color }]} />
+                  </View>
+                  <Text style={[styles.barPct, theme.textPrimary]}>{pctLabel}</Text>
+                </View>
+              );
+            })}
+            <Text style={[styles.barHint, theme.textMuted]}>{insight}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.recHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.secLabel, theme.secLabel]}>Recomendações</Text>
+              <Text style={[styles.recTitle, theme.textPrimary]}>O que os dados dizem</Text>
+              <Text style={[styles.recSub, theme.textMuted]}>para o seu negócio em {displayedDistrictName}</Text>
+            </View>
+            <View style={styles.iaBadge}>
+              <Text style={styles.iaBadgeTop}>✦ IA</Text>
+            </View>
+          </View>
+        </View>
+
+        {aiLoading && !aiRecs ? (
+          <Text style={[styles.aiLoadingText, theme.textMuted]}>Gerando recomendações com IA...</Text>
+        ) : null}
+
+        {aiRecs?.cards?.map((card, i) => (
+          <RecCard
+            key={`${card.tag}-${i}`}
+            theme={theme}
+            accent={REC_THEMES[i]?.accent}
+            tagBg={REC_THEMES[i]?.tagBg}
+            tagColor={REC_THEMES[i]?.tagColor}
+            tag={card.tag}
+            emoji={card.emoji}
+            title={card.title}
+            body={card.body}
+            leftKpi={recKpis[i]?.[0]}
+            rightKpi={recKpis[i]?.[1]}
+          />
+        ))}
+
+        <View style={styles.section}>
+          <Text style={[styles.secLabel, theme.secLabel]}>Oportunidades adicionais</Text>
+          <View style={styles.oppList}>
+            {aiRecs?.opportunities?.map((opp, i) => (
+              <View key={`${opp.title}-${i}`} style={[styles.oppItem, theme.kpiCard]}>
+                <View style={styles.oppIcon}>
+                  <Text style={styles.oppEmoji}>{opp.emoji}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.oppTitle, theme.textPrimary]}>{opp.title}</Text>
+                  <Text style={[styles.oppBody, theme.textMuted]}>{opp.body}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.footerWrap}>
+          <Text style={styles.footerLeft}>Observa Sampa</Text>
+          <Text style={styles.footerBrand}>Cuddle</Text>
+        </View>
       </ScrollView>
+
+      <View style={[styles.bottomNavWrap, { height: navHeight, paddingBottom: insets.bottom }]}>
+        <BottomNav
+          navigation={navigation}
+          activeTab="dashboard"
+          userId={userId}
+          userName={userName}
+          isAdm={isAdm}
+        />
+      </View>
+
+      {isGenerating ? (
+        <View style={styles.loadingOverlay} pointerEvents="auto">
+          <View style={[styles.loadingBox, theme.card]}>
+            <ActivityIndicator size="large" color="#f5c842" />
+            <Text style={[styles.loadingTxt, theme.textPrimary]}>Gerando...</Text>
+          </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#dff0f5',
+    backgroundColor: '#f0f8fb',
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#dff0f5',
+    backgroundColor: '#f0f8fb',
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingHorizontal: 14,
   },
-
-  // Blobs decorativos
-  blob: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(180,220,235,0.45)',
-  },
-
-  // Header
   header: {
-    backgroundColor: '#1a5c6e',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 0,
+    backgroundColor: '#1a4a5c',
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 16,
+    position: 'relative',
+  },
+  headerBrand: {
+    position: 'absolute',
+    right: 18,
+    top: 14,
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 11,
+    color: '#f5c842',
+    letterSpacing: 0.4,
+  },
+  headerLabel: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 10,
+    color: 'rgba(168,212,224,0.9)',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   headerTitle: {
-    fontFamily: 'Kanit_700Bold',
+    fontFamily: 'DMSerifDisplay_400Regular',
     fontSize: 22,
     color: '#ffffff',
-    letterSpacing: 0.3,
+    lineHeight: 26,
   },
   headerSub: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 13,
-    color: '#a8d4df',
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: 'rgba(168,212,224,0.8)',
     marginTop: 2,
-    marginBottom: 14,
   },
-  headerBorder: {
+  headerAccent: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     height: 3,
-    backgroundColor: '#d4a017',
+    backgroundColor: '#f5c842',
   },
-
-  // Section labels
-  sectionLabel: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 11,
-    color: '#2a7a8c',
-    letterSpacing: 1,
+  controlsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(26,74,92,0.12)',
+    padding: 10,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  districtSelect: { flex: 1 },
+  districtLabel: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 9,
+    color: '#5a7a88',
     textTransform: 'uppercase',
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 11,
-    color: '#2a7a8c',
     letterSpacing: 1,
+  },
+  districtValue: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    color: '#1a4a5c',
+    marginTop: 2,
+  },
+  generateBtn: {
+    backgroundColor: '#f5c842',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generateBtnDisabled: { opacity: 0.6 },
+  generateBtnTxt: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 11,
+    color: '#1a4a5c',
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
-    marginHorizontal: 16,
-    marginTop: 22,
-    marginBottom: 4,
-    textAlign: 'center',
   },
-  sectionSubtitle: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 12,
-    color: '#6a9aaa',
-    textAlign: 'center',
-    marginBottom: 10,
+  districtListCard: {
+    marginTop: 8,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(26,74,92,0.12)',
+    backgroundColor: '#ffffff',
   },
-
-  // Total card
-  totalCard: {
-    backgroundColor: '#1a5c6e',
-    marginHorizontal: 16,
+  districtItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderRadius: 8,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#d4a017',
   },
-  totalLbl: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 10,
-    color: '#a8d4df',
-    letterSpacing: 0.8,
+  districtItemSelected: {
+    borderWidth: 1,
+    borderColor: '#f5c842',
+    backgroundColor: 'rgba(245,200,66,0.12)',
+  },
+  districtItemTxt: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    color: '#1a4a5c',
+  },
+  districtItemTxtSelected: {
+    fontFamily: 'DMSans_600SemiBold',
+    color: '#1a4a5c',
+  },
+  emptyDistricts: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 12,
+    color: '#5a7a88',
+    textAlign: 'center',
+    paddingVertical: 10,
+  },
+  errorText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    color: '#c0392b',
+    marginTop: 8,
+  },
+  section: { marginTop: 12 },
+  secLabel: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 9,
+    color: '#1a4a5c',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    paddingBottom: 3,
+    borderBottomWidth: 2,
+    borderBottomColor: '#f5c842',
+    alignSelf: 'flex-start',
+    marginBottom: 6,
   },
-  totalNum: {
-    fontFamily: 'Kanit_700Bold',
-    fontSize: 36,
+  popTotal: {
+    backgroundColor: '#1a4a5c',
+    borderRadius: 14,
+    padding: 12,
+  },
+  popRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  popNum: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 30,
     color: '#ffffff',
-    lineHeight: 40,
+    lineHeight: 32,
   },
-  totalSub: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 16,
-    color: '#a8d4df',
+  popUnit: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 12,
+    color: 'rgba(168,212,224,0.85)',
   },
-
-  // KPI cards
+  popSub: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 10,
+    color: 'rgba(168,212,224,0.7)',
+    marginTop: 2,
+  },
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: 16,
-    marginTop: 10,
-    gap: 10,
+    gap: 8,
   },
   kpiCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1.5,
-    width: (width - 32 - 10) / 2 - 0.5,
-  },
-  kpiCardFull: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1.5,
-    marginHorizontal: 16,
-    marginTop: 10,
-  },
-  kpiPos: { borderColor: '#4db89e' },
-  kpiNeg: { borderColor: '#e8837a' },
-  kpiLblWrap: {
-    borderLeftWidth: 3,
-    paddingLeft: 6,
-    marginBottom: 6,
-  },
-  kpiLbl: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 9,
-    letterSpacing: 0.8,
-  },
-  kpiNum: {
-    fontFamily: 'Kanit_700Bold',
-    fontSize: 26,
-    color: '#1a5c6e',
-    lineHeight: 28,
-  },
-  kpiPct: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 12,
-    color: '#6a9aaa',
-    marginTop: 2,
-  },
-  kpiDelta: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 11,
-    marginTop: 4,
-  },
-
-  // Card genérico
-  card: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    borderRadius: 8,
-    padding: 14,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 0.5,
-    borderColor: '#c8dfe6',
-    marginTop: 12,
+    borderColor: 'rgba(26,74,92,0.1)',
+    width: (width - 28 - 8) / 2,
   },
-
-  // Chart
-  chartTitle: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 12,
-    color: '#1a5c6e',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  chartTick: {
-    fontFamily: 'Kanit_400Regular',
+  kpiLabel: {
+    fontFamily: 'DMSans_600SemiBold',
     fontSize: 9,
-    color: '#6a9aaa',
-  },
-  legendTxt: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 11,
-    color: '#6a9aaa',
-  },
-
-  // Donut
-  donutPct: {
-    fontFamily: 'Kanit_700Bold',
-    fontSize: 16,
-    color: '#1a5c6e',
-    textAlign: 'center',
-  },
-  donutLbl: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 10,
-    color: '#6a9aaa',
-    textAlign: 'center',
-  },
-
-  // Ranking
-  rankingTitle: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 10,
-    color: '#2a7a8c',
-    letterSpacing: 0.6,
-    marginBottom: 6,
+    color: '#5a7a88',
     textTransform: 'uppercase',
-  },
-  rankRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#f0f8fa',
-  },
-  rankRowHL: {
-    backgroundColor: '#1a5c6e',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-  },
-  rankPos: {
-    fontFamily: 'Kanit_500Medium',
-    fontSize: 10,
-    color: '#6a9aaa',
-    width: 26,
-  },
-  rankName: {
-    fontFamily: 'Kanit_500Medium',
-    fontSize: 11,
-    color: '#1a5c6e',
-    flex: 1,
-    paddingRight: 4,
-  },
-  rankVal: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 11,
-    color: '#2a7a8c',
-  },
-  rankTxtHL: {
-    color: '#ffffff',
-  },
-  dots: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 14,
-    color: '#a8c8d4',
-    textAlign: 'center',
-    letterSpacing: 3,
-    paddingVertical: 2,
-  },
-
-  // Tab bar
-  tabBar: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginTop: 12,
-    borderWidth: 0.5,
-    borderColor: '#c8dfe6',
-    backgroundColor: '#ffffff',
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabTxt: {
-    fontFamily: 'Kanit_500Medium',
-    fontSize: 12,
-    color: '#6a9aaa',
-  },
-
-  // Recomendação
-  recCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#c8e8f0',
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 8,
-    padding: 14,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2a7a8c',
-    gap: 12,
-  },
-  recIcon: {
-    fontSize: 24,
-  },
-  recTitle: {
-    fontFamily: 'Kanit_600SemiBold',
-    fontSize: 13,
-    color: '#1a5c6e',
+    letterSpacing: 0.6,
     marginBottom: 4,
   },
-  recBody: {
-    fontFamily: 'Kanit_400Regular',
-    fontSize: 12,
-    color: '#3a7a8c',
-    lineHeight: 18,
+  kpiVal: {
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 18,
+    color: '#1a4a5c',
+    lineHeight: 20,
   },
-
-  // Footer
-  footer: {
-    fontFamily: 'Kanit_400Regular',
+  kpiUnit: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 9,
+    color: '#5a7a88',
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 6,
+  },
+  badgeText: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 9,
+  },
+  badgeUp: { backgroundColor: '#e8f5e9' },
+  badgeDown: { backgroundColor: '#fde8e8' },
+  badgeUpText: { color: '#2e7d32' },
+  badgeDownText: { color: '#c0392b' },
+  badgePlaceholder: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 9,
+    color: '#5a7a88',
+    marginTop: 6,
+  },
+  barsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(26,74,92,0.1)',
+  },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  barLabel: {
+    width: 90,
+    flexShrink: 0,
+    fontFamily: 'DMSans_400Regular',
     fontSize: 10,
-    color: '#6a9aaa',
-    textAlign: 'center',
-    marginTop: 24,
-    marginBottom: 8,
-    paddingTop: 10,
+    color: '#1a4a5c',
+  },
+  barTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#d0e4ec',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  barPct: {
+    width: 40,
+    textAlign: 'right',
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 10,
+    color: '#1a4a5c',
+  },
+  barHint: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 9,
+    color: '#5a7a88',
+    marginTop: 6,
+    paddingTop: 8,
     borderTopWidth: 0.5,
-    borderTopColor: '#c8dfe6',
-    marginHorizontal: 16,
+    borderTopColor: 'rgba(26,74,92,0.08)',
+  },
+  recHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  recTitle: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    color: '#1a4a5c',
+  },
+  recSub: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 10,
+    color: '#5a7a88',
+    marginTop: 2,
+  },
+  iaBadge: {
+    backgroundColor: '#1a4a5c',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  iaBadgeTop: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 9,
+    color: '#f5c842',
+  },
+  aiLoadingText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 10,
+    color: '#5a7a88',
+    marginTop: 6,
+  },
+  recCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: 'rgba(26,74,92,0.1)',
+    marginTop: 10,
+  },
+  recAccent: { height: 3 },
+  recCardTop: { padding: 12 },
+  recTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  recTagText: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 8,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  recIconRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  recIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e8f4f8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recEmoji: { fontSize: 18 },
+  recCardTitle: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 13,
+    color: '#1a4a5c',
+  },
+  recCardBody: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: '#5a7a88',
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  recCardBottom: {
+    flexDirection: 'row',
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(26,74,92,0.08)',
+  },
+  recKpiMini: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  recKpiMiniLabel: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 8.5,
+    color: '#5a7a88',
+  },
+  recKpiMiniVal: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 11,
+    color: '#1a4a5c',
+  },
+  oppList: { gap: 8 },
+  oppItem: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(26,74,92,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  oppIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e8f4f8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  oppEmoji: { fontSize: 16 },
+  oppTitle: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 12,
+    color: '#1a4a5c',
+  },
+  oppBody: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 10,
+    color: '#5a7a88',
+    lineHeight: 14,
+    marginTop: 2,
+  },
+  footerWrap: {
+    marginTop: 18,
+    marginHorizontal: -14,
+    backgroundColor: '#1a4a5c',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  footerLeft: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 9,
+    color: 'rgba(168,212,224,0.7)',
+  },
+  footerBrand: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 10,
+    color: '#f5c842',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(26,74,92,0.12)',
+    backgroundColor: '#ffffff',
+  },
+  loadingTxt: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 14,
+    color: '#1a4a5c',
+  },
+  bottomNavWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });
 
-// ─── Dark mode overrides ────────────────────────────────────────────────────────
-
 const darkStyles = {
-  safe:         { backgroundColor: '#0d1f26' },
-  scroll:       { backgroundColor: '#0d1f26' },
-  sectionLabel: { color: '#4db8c0' },
-  kpiCard:      { backgroundColor: '#152e38', borderColor: '#1e4455' },
-  kpiNum:       { color: '#e0f4f8' },
-  kpiPct:       { color: '#4a8a9a' },
-  card:         { backgroundColor: '#152e38', borderColor: '#1e4455' },
-  chartTitle:   { color: '#a8d4df' },
-  legendTxt:    { color: '#4a8a9a' },
-  rankingTitle: { color: '#4db8c0' },
-  recCard:      { backgroundColor: '#0e2b38', borderLeftColor: '#4db8c0' },
-  footer:       { color: '#2a6a7a', borderTopColor: '#1e4455' },
+  safe: { backgroundColor: '#0d1f26' },
+  scroll: { backgroundColor: '#0d1f26' },
+  card: { backgroundColor: '#132a33', borderColor: '#1e4455' },
+  kpiCard: { backgroundColor: '#132a33', borderColor: '#1e4455' },
+  barTrack: { backgroundColor: '#223a44' },
+  textPrimary: { color: '#e0f4f8' },
+  textMuted: { color: '#6a9aaa' },
+  errorText: { color: '#e8837a' },
+  secLabel: { color: '#4db8c0', borderBottomColor: '#f5c842' },
+  headerLabel: { color: 'rgba(168,212,224,0.8)' },
+  headerTitle: { color: '#ffffff' },
+  headerSub: { color: 'rgba(168,212,224,0.7)' },
+  headerBrand: { color: '#f5c842' },
 };

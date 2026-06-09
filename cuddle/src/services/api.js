@@ -49,7 +49,7 @@ async function request(path, options = {}, authenticated = false) {
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 
 export async function login(email, password) {
-  // Returns: { id, name, email, token, isAdmin }
+  // Returns: { id, name, email, token, isAdm }
   return request('/api/owners/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
@@ -82,7 +82,6 @@ export async function getPetById(petId, ownerId) {
 }
 
 export async function createPet(ownerId, payload) {
-  // payload: { name, size, species, breed, coat, age, sex }
   return request(`/api/pets/${ownerId}`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -90,7 +89,6 @@ export async function createPet(ownerId, payload) {
 }
 
 export async function updatePet(petId, payload) {
-  // payload: { name, size, species, breed, coat, age, sex }
   return request(`/api/pets/${petId}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
@@ -117,13 +115,19 @@ export async function getAppointmentsByUser(ownerId, page = 0, size = 20) {
     {},
     true
   );
-  // result is a PageResponse — return the content array (or [] if 204/empty)
   return result?.content ?? [];
 }
 
+export async function getAllAppointments(page = 0, size = 50) {
+  const result = await request(
+    `/api/appointments?page=${page}&size=${size}`,
+    {},
+    true
+  );
+  return result?.content ?? (Array.isArray(result) ? result : []);
+}
+
 export async function getAvailableTimes(petId, date, petOfferingIds) {
-  // date: 'YYYY-MM-DD'
-  // Returns { tooLong: false, results: [...] } or { tooLong: true, totalDuration, maxDuration }
   try {
     const data = await request(`/api/appointments/available-times/${petId}`, {
       method: 'POST',
@@ -139,7 +143,6 @@ export async function getAvailableTimes(petId, date, petOfferingIds) {
 }
 
 export async function createAppointment(payload) {
-  // payload: { petId, employee_id, petOfferingNames, totalPrice, observations, startDateTime, durationMinutes }
   return request('/api/appointments', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -150,4 +153,15 @@ export async function deleteAppointment(appointmentId) {
   return request(`/api/appointments/${appointmentId}`, {
     method: 'DELETE',
   }, true);
+}
+
+// ─── ANALYTICS (Dashboard) ───────────────────────────────────────────────────
+
+export async function getAnalyticsDistricts() {
+  const data = await request('/api/analytics/districts', {}, true);
+  return data?.districts ?? [];
+}
+
+export async function getAnalyticsDashboard(region) {
+  return request(`/api/analytics/dashboard?region=${encodeURIComponent(region)}`, {}, true);
 }

@@ -256,7 +256,7 @@ export default function UserProfile({ navigation, route }) {
         <TouchableOpacity
           style={s.logoutBtn}
           activeOpacity={0.8}
-          onPress={async () => { await clearAuth(); navigation?.replace('Login'); }}
+          onPress={async () => { await clearAuth(); navigation?.reset({ index: 0, routes: [{ name: 'Login' }] }); }}
         >
           <LogOut size={18} color="#DA524D" />
           <Text style={s.logoutText}>{t.logout}</Text>

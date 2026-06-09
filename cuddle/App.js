@@ -14,7 +14,8 @@ import ScheduleCreate from './src/screens/Main/Schedule/ScheduleCreate';
 import PetProfile from './src/screens/Main/Pet/PetProfile';
 import PetEdit from './src/screens/Main/Pet/PetEdit';
 import UserProfile from './src/screens/Main/Profile/UserProfile';
-import Dashboard from './src/screens/Main/Dashboard/DashboardScreen'; // 👈 novo
+import Dashboard from './src/screens/Main/Dashboard/DashboardScreen';
+import AdminAppointments from './src/screens/Main/Admin/AdminAppointments';
 
 const Stack = createNativeStackNavigator();
 
@@ -51,7 +52,8 @@ function ThemedApp({ fontsLoaded }) {
         <Stack.Screen name="PetProfile"      component={PetProfile} />
         <Stack.Screen name="PetEdit"         component={PetEdit} />
         <Stack.Screen name="UserProfile"     component={UserProfile} />
-        <Stack.Screen name="Dashboard"       component={Dashboard} />
+        <Stack.Screen name="Dashboard"           component={Dashboard} />
+        <Stack.Screen name="AdminAppointments"   component={AdminAppointments} />
       </Stack.Navigator>
     </NavigationContainer>
   );

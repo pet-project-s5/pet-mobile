@@ -46,11 +46,12 @@ export default function Login({ navigation }) {
         return;
       }
 
-      await setAuth(data.token, data.id, data.name);
+      const isAdm = Boolean(data?.isAdm ?? data?.isAdmin);
+      await setAuth(data.token, data.id, data.name, isAdm);
 
-      navigation?.replace('Home', {
-        userId: data.id,
-        userName: data.name,
+      navigation?.reset({
+        index: 0,
+        routes: [{ name: 'Home', params: { userId: data.id, userName: data.name, isAdm } }],
       });
     } catch (error) {
       if (error.status === 400 || error.status === 401 || error.status === 404) {

@@ -1,8 +1,29 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  // ── Admin ─────────────────────────────────────────────────────────────────
+  const adminPassword = await bcrypt.hash('admin', 10);
+  await prisma.owner.upsert({
+    where: { email: 'admin@cuddle.com' },
+    update: {},
+    create: {
+      name:         'Admin',
+      email:        'admin@cuddle.com',
+      password:     adminPassword,
+      cpf:          '99999999999',
+      phoneNumber:  '99999999999',
+      cep:          '00000000',
+      street:       'Admin',
+      number:       '1',
+      neighborhood: 'Admin',
+      isAdm:        true,
+    },
+  });
+  console.log('Admin criado: admin@cuddle.com / admin');
+
   // ── Serviços ──────────────────────────────────────────────────────────────
   await prisma.petOffering.createMany({
     data: [
